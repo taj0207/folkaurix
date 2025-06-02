@@ -36,12 +36,20 @@ Abstract:
 #include "a2dphpminipairs.h"
 #endif // SYSVAD_A2DP_SIDEBAND
 
+#include "loopback.h"
+
+
 
 
 
 typedef void (*fnPcDriverUnload) (PDRIVER_OBJECT);
 fnPcDriverUnload gPCDriverUnloadRoutine = NULL;
 extern "C" DRIVER_UNLOAD DriverUnload;
+
+NTSTATUS LoopbackControl_CreateDevice(_In_ PDRIVER_OBJECT DriverObject);
+void LoopbackControl_DeleteDevice();
+NTSTATUS LoopbackBuffer_Initialize();
+void LoopbackBuffer_Cleanup();
 
 #ifdef _USE_SingleComponentMultiFxStates
 C_ASSERT(sizeof(POHANDLE) == sizeof(PVOID));
@@ -328,6 +336,9 @@ Environment:
 
     ReleaseRegistryStringBuffer();
 
+    LoopbackControl_DeleteDevice();
+    LoopbackBuffer_Cleanup();
+
     if (DriverObject == NULL)
     {
         goto Done;
@@ -557,6 +568,10 @@ Return Value:
         ntStatus,
         DPF(D_ERROR, ("WdfDriverCreate failed, 0x%x", ntStatus)),
         Done);
+
+    LoopbackBuffer_Initialize();
+    ntStatus = LoopbackControl_CreateDevice(DriverObject);
+    IF_FAILED_JUMP(ntStatus, Done);
 
     //
     // Get registry configuration.

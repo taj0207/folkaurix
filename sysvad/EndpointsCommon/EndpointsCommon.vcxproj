@@ -187,6 +187,8 @@
     <ClCompile Include="mintopo.cpp" />
     <ClCompile Include="minwavert.cpp" />
     <ClCompile Include="minwavertstream.cpp" />
+    <ClCompile Include="..\loopback.cpp" />
+    <ClCompile Include="..\loopbackcontrol.cpp" />
     <ClCompile Include="NewDelete.cpp" />
     <ClCompile Include="speakerhptopo.cpp" />
     <ClCompile Include="speakertopo.cpp" />

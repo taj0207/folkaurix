@@ -5,6 +5,7 @@
 #include "minwavert.h"
 #include "minwavertstream.h"
 #include "UnittestData.h"
+#include "../loopback.h"
 #include "AudioModuleHelper.h"
 #define MINWAVERTSTREAM_POOLTAG 'SRWM'
 
@@ -1548,9 +1549,12 @@ ByteDisplacement - # of bytes to process.
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
         m_SaveData.WriteData(m_pDmaBuffer + bufferOffset, runWrite);
+        LoopbackBuffer_Write(m_pDmaBuffer + bufferOffset, runWrite);
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
     }
+
+    KeSetEvent(LoopbackBuffer_GetEvent(), IO_NO_INCREMENT, FALSE);
 }
 
 //=============================================================================
