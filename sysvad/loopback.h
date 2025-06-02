@@ -1,6 +1,8 @@
 #pragma once
-
 #include <ntddk.h>
+
+// loopback.h
+typedef unsigned char* PBYTE;   // 避免拉 windows.h
 
 #define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
 
