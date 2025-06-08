@@ -3,8 +3,8 @@
 This is a simple user‑mode application that reads audio captured by the
 SysVAD loopback device.  The tool opens `\\.\SysVADLoopback` and issues
 the `IOCTL_SYSVAD_GET_LOOPBACK_DATA` control code in a loop.  Any data
-returned from the driver is optionally written to a file specified on
-the command line.
+returned from the driver can be written to a file and is also played
+back through a user selected audio render device.
 
 ## Building
 The project is a standard Visual Studio console application.  Add
@@ -15,6 +15,7 @@ desired architecture.
 ```
 folkaurixsvc.exe [output.raw]
 ```
-If an output file is supplied, PCM data from the driver will be written
-to that file.  Otherwise the program simply prints the number of bytes
-received from each request.
+When started, the program lists all active speaker devices and lets the
+user choose one. Audio from the SysVAD loopback driver is streamed to
+the selected device. If an output file is supplied, the same PCM data is
+also written to that file.
