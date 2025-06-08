@@ -38,25 +38,48 @@ int wmain(int argc, wchar_t** argv)
     }
 
     UINT count = 0;
-    pCollection->GetCount(&count);
+    hr = pCollection->GetCount(&count);
+    if (FAILED(hr))
+    {
+        wprintf(L"GetCount failed: 0x%08lx\n", hr);
+        pCollection->Release();
+        pEnumerator->Release();
+        CoUninitialize();
+        return 1;
+    }
     for (UINT i = 0; i < count; ++i)
     {
         IMMDevice* pDevice = nullptr;
-        if (SUCCEEDED(pCollection->Item(i, &pDevice)))
+        hr = pCollection->Item(i, &pDevice);
+        if (SUCCEEDED(hr))
         {
             IPropertyStore* pStore = nullptr;
-            if (SUCCEEDED(pDevice->OpenPropertyStore(STGM_READ, &pStore)))
+            hr = pDevice->OpenPropertyStore(STGM_READ, &pStore);
+            if (SUCCEEDED(hr))
             {
                 PROPVARIANT varName;
                 PropVariantInit(&varName);
-                if (SUCCEEDED(pStore->GetValue(PKEY_Device_FriendlyName, &varName)))
+                hr = pStore->GetValue(PKEY_Device_FriendlyName, &varName);
+                if (SUCCEEDED(hr))
                 {
                     wprintf(L"%u: %s\n", i, varName.pwszVal);
                     PropVariantClear(&varName);
                 }
+                else
+                {
+                    wprintf(L"GetValue for device %u failed: 0x%08lx\n", i, hr);
+                }
                 pStore->Release();
             }
+            else
+            {
+                wprintf(L"OpenPropertyStore for device %u failed: 0x%08lx\n", i, hr);
+            }
             pDevice->Release();
+        }
+        else
+        {
+            wprintf(L"Failed to get device at index %u: 0x%08lx\n", i, hr);
         }
     }
 
