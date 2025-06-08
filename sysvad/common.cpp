@@ -599,6 +599,8 @@ Return Value:
     {
         ntStatus = STATUS_INSUFFICIENT_RESOURCES;
         DPF(D_ERROR, ("NewAdapterCommon failed, 0x%x", ntStatus));
+        // Reset the instance counter since the adapter object was not created
+        InterlockedExchange(&CAdapterCommon::m_AdapterInstances, 0);
         goto Done;
     }
 
