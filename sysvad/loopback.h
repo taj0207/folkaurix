@@ -24,3 +24,8 @@ void LoopbackBuffer_Write(_In_reads_bytes_(Length) PBYTE Data, _In_ ULONG Length
 ULONG LoopbackBuffer_Read(_Out_writes_bytes_(Length) PBYTE Data, _In_ ULONG Length);
 ULONG LoopbackBuffer_Available();
 KEVENT* LoopbackBuffer_GetEvent();
+
+NTSTATUS LoopbackControl_CreateDevice(_In_ PDRIVER_OBJECT DriverObject);
+void LoopbackControl_DeleteDevice();
+void LoopbackControl_InstallDispatch(_In_ PDRIVER_OBJECT DriverObject);
+void LoopbackControl_RemoveDispatch(_In_ PDRIVER_OBJECT DriverObject);

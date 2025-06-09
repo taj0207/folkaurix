@@ -46,10 +46,6 @@ typedef void (*fnPcDriverUnload) (PDRIVER_OBJECT);
 fnPcDriverUnload gPCDriverUnloadRoutine = NULL;
 extern "C" DRIVER_UNLOAD DriverUnload;
 
-NTSTATUS LoopbackControl_CreateDevice(_In_ PDRIVER_OBJECT DriverObject);
-void LoopbackControl_DeleteDevice();
-NTSTATUS LoopbackBuffer_Initialize();
-void LoopbackBuffer_Cleanup();
 
 #ifdef _USE_SingleComponentMultiFxStates
 C_ASSERT(sizeof(POHANDLE) == sizeof(PVOID));
@@ -336,6 +332,7 @@ Environment:
 
     ReleaseRegistryStringBuffer();
 
+    LoopbackControl_RemoveDispatch(DriverObject);
     LoopbackControl_DeleteDevice();
     LoopbackBuffer_Cleanup();
 
@@ -592,6 +589,8 @@ Return Value:
         ntStatus,
         DPF(D_ERROR, ("PcInitializeAdapterDriver failed, 0x%x", ntStatus)),
         Done);
+
+    LoopbackControl_InstallDispatch(DriverObject);
 
     //
     // To intercept stop/remove/surprise-remove.
