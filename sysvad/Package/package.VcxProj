@@ -19,18 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\KeywordDetectorAdapter\KeywordDetectorContosoAdapter.vcxproj">
-      <Project>{E0F02048-78A4-4FE8-B863-66E6CB6A2C37}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\APO\SwapAPO\SwapAPO.vcxproj">
-      <Project>{691F1D0F-CA50-46CD-8BBA-A59E9E8EB601}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\APO\DelayAPO\DelayAPO.vcxproj">
-      <Project>{8851AB85-70B3-4798-A149-BA366DF9EC25}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\APO\KWSApo\KwsAPO.vcxproj">
-      <Project>{47358AD6-A48A-465B-965F-0A66F8BDFE23}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\APO\AecApo\AecAPO.vcxproj">
       <Project>{83A1B9B0-3CB7-4249-ADEC-C336B0EDDE76}</Project>
     </ProjectReference>
