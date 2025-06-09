@@ -2421,6 +2421,10 @@ CAdapterCommon::UpdatePowerRelations(_In_ PIRP Irp)
         goto Exit;
     }
 
+    // Ensure the new structure is initialized so Count starts at zero and
+    // Objects contains valid pointers only when explicitly set.
+    RtlZeroMemory(newRelations, size);
+
     //
     // If there was an existing device relations structure, copy
     // the entries to the new structure.
