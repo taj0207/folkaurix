@@ -164,12 +164,12 @@ static
 ENDPOINT_MINIPAIR SpeakerMiniports =
 {
     eSpeakerDevice,
-    L"TopologySpeaker",                                     // make sure this or the template name matches with KSNAME_TopologySpeaker in the inf's [Strings] section 
+    L"TopologySpeaker",                                     // make sure this or the template name matches with KSNAME_TopologySpeaker in the inf's [Strings] section
     NULL,                                                   // optional template name
     CreateMiniportTopologySYSVAD,
     &SpeakerTopoMiniportFilterDescriptor,
     0, NULL,                                                // Interface properties
-    L"WaveSpeaker",                                         // make sure this or the template name matches with KSNAME_WaveSpeaker in the inf's [Strings] section
+    L"folkaurix_speaker",                                   // match KSNAME_WaveSpeaker in the inf
     NULL,                                                   // optional template name
     CreateMiniportWaveRTSYSVAD,
     &SpeakerWaveMiniportFilterDescriptor,
@@ -357,7 +357,7 @@ ENDPOINT_MINIPAIR MicInMiniports =
     CreateMiniportTopologySYSVAD,
     &MicInTopoMiniportFilterDescriptor,
     0, NULL,                                // Interface properties
-    L"WaveMicIn",                           // make sure this or the template name matches with KSNAME_WaveMicIn in the inf's [Strings] section
+    L"folkaurix_mic",                        // match KSNAME_WaveMicIn in the inf
     NULL,                                   // optional template name
     CreateMiniportWaveRTSYSVAD,
     &MicInWaveMiniportFilterDescriptor,
@@ -507,12 +507,9 @@ ENDPOINT_MINIPAIR MicArray3Miniports =
 // Render miniport pairs.
 //
 static
-PENDPOINT_MINIPAIR  g_RenderEndpoints[] = 
+PENDPOINT_MINIPAIR  g_RenderEndpoints[] =
 {
     &SpeakerMiniports,
-    &SpeakerHpMiniports,
-    &HdmiMiniports,
-    &SpdifMiniports,
 };
 
 #define g_cRenderEndpoints  (SIZEOF_ARRAY(g_RenderEndpoints))
@@ -522,12 +519,9 @@ PENDPOINT_MINIPAIR  g_RenderEndpoints[] =
 // Capture miniport pairs.
 //
 static
-PENDPOINT_MINIPAIR  g_CaptureEndpoints[] = 
+PENDPOINT_MINIPAIR  g_CaptureEndpoints[] =
 {
     &MicInMiniports,
-    &MicArray1Miniports,
-    &MicArray2Miniports,
-    &MicArray3Miniports,
 };
 
 #define g_cCaptureEndpoints (SIZEOF_ARRAY(g_CaptureEndpoints))
