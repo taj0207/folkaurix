@@ -2,6 +2,27 @@
 #include "loopback.h"
 
 static PDEVICE_OBJECT g_LoopbackDevice = NULL;
+static PDRIVER_DISPATCH g_PortclsDispatch[IRP_MJ_MAXIMUM_FUNCTION + 1] = {0};
+
+static NTSTATUS LoopbackDriverDispatch(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
+{
+    if (DeviceObject == g_LoopbackDevice)
+    {
+        return LoopbackDispatch(DeviceObject, Irp);
+    }
+
+    PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
+    UCHAR major = irpSp->MajorFunction;
+    if (major <= IRP_MJ_MAXIMUM_FUNCTION && g_PortclsDispatch[major])
+    {
+        return g_PortclsDispatch[major](DeviceObject, Irp);
+    }
+
+    Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return STATUS_INVALID_DEVICE_REQUEST;
+}
 
 static NTSTATUS LoopbackDispatch(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 {
@@ -48,8 +69,6 @@ NTSTATUS LoopbackControl_CreateDevice(_In_ PDRIVER_OBJECT DriverObject)
         return status;
 
     g_LoopbackDevice->Flags |= DO_DIRECT_IO;
-    for (UINT32 i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; ++i)
-        DriverObject->MajorFunction[i] = LoopbackDispatch;
 
     status = IoCreateSymbolicLink(&symLink, &devName);
     if (!NT_SUCCESS(status))
@@ -69,5 +88,26 @@ void LoopbackControl_DeleteDevice()
     {
         IoDeleteDevice(g_LoopbackDevice);
         g_LoopbackDevice = NULL;
+    }
+}
+
+void LoopbackControl_InstallDispatch(_In_ PDRIVER_OBJECT DriverObject)
+{
+    for (UINT32 i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; ++i)
+    {
+        g_PortclsDispatch[i] = DriverObject->MajorFunction[i];
+        DriverObject->MajorFunction[i] = LoopbackDriverDispatch;
+    }
+}
+
+void LoopbackControl_RemoveDispatch(_In_ PDRIVER_OBJECT DriverObject)
+{
+    for (UINT32 i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; ++i)
+    {
+        if (DriverObject->MajorFunction[i] == LoopbackDriverDispatch)
+        {
+            DriverObject->MajorFunction[i] = g_PortclsDispatch[i];
+        }
+        g_PortclsDispatch[i] = NULL;
     }
 }
