@@ -32,11 +32,7 @@ The following table shows the features that are implemented in the various subdi
 | --- | --- |
 | TabletAudioSample | Endpoints that are present in TabletAudioSample driver. |
 | EndpointsCommon | Endpoints that are present in both TabletAudioSample and PhoneAudioSample. It also contains other common code shared by both sample drivers. |
-| SwapAPO | Sample APO that installs onto endpoints exposed by the SysVAD sample driver and swaps the left and right channels. |
-| DelayAPO | Sample APO that adds a delay to the input samples. |
-| KwsAPO | Sample APO that uses KSPROPERTY_INTERLEAVEDAUDIO_FORMATINFORMATION to determine if the keyword spotter pin is interleaving loopback audio with the microphone audio and identify which channels contain loopback audio. If it is interleaved the APO will strip out the loopback audio and deliver only the microphone audio upstream. Because channel data is removed, the APO negotiates an output format which is different than the input format. |
 | AecAPO | Sample capture MFX APO that implements Acoustic Echo Cancellation. This APO demonstrates the use of echo cancellation interfaces that an AEC APO uses to obtain reference audio for cancellation.  |
-| KeywordDetectorAdapter | Sample Keyword Detector Adapter. |
 
 For more information about the Windows audio engine, see [Hardware-Offloaded Audio Processing](https://docs.microsoft.com/windows-hardware/drivers/audio/hardware-offloaded-audio-processing), and note that audio hardware that is offload-capable replicates the architecture that is presented in the diagram shown in the topic.
 
@@ -98,11 +94,7 @@ The package should contain these files:
 | File | Description |
 | --- | --- |
 | TabletAudioSample.sys | The driver file. |
-| DelayAPO.dll | The delay APO. |
-| KeywordDetectorContosoAdapter.dll | Sample Keyword detector adapter. |
 | AecApo.dll | The AEC APO. |
-| KWSApo.dll | The KWS APO. |
-| SwapAPO.dll | The swap APO. |
 | sysvad.cat | A signed catalog file, which serves as the signature for the entire package. |
 | ComponentizedApoSample.inf | A componentized information (INF) file that installs an APO device. |
 | ComponentizedAudioSample.inf | A componentized information (INF) file that contains information needed to install the Tablet Audio Sample driver. |
