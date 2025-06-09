@@ -248,10 +248,6 @@ HKR,EP\0,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x1
 ;======================================================
 ; MsApoFxProxy APO registry
 ;======================================================
-[MsApoFxProxy.I.Association0.AddReg]
-HKR,FX\0,%PKEY_FX_Association%,,%KSNODETYPE_ANY%
-HKR,FX\0,%PKEY_FX_EndpointEffectClsid%,,%FX_DISCOVER_EFFECTS_APO_CLSID%
-
 [MsApoFxProxyEFX.I.Association0.AddReg]
 HKR,FX\0,%PKEY_FX_Association%,,%KSNODETYPE_ANY%
 HKR,FX\0,%PKEY_FX_KeywordDetector_ModeEffectClsid%,,%FX_DISCOVER_EFFECTS_APO_CLSID%
