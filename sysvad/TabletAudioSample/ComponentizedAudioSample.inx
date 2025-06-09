@@ -334,6 +334,8 @@ HKR,FX\0,%PKEY_FX_KeywordDetector_ModeEffectClsid%,,%FX_DISCOVER_EFFECTS_APO_CLS
 [SYSVAD_SA.NT]
 Include=ks.inf,wdmaudio.inf
 Needs=KS.Registration, WDMAUDIO.Registration
+CopyFiles=SYSVAD_SA.CopyList
+AddReg=SYSVAD_SA.AddReg
 
 [SYSVAD_SA.NT.Interfaces]
 ;
