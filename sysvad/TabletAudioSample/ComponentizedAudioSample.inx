@@ -12,11 +12,9 @@ PnpLockDown = 1
 
 [SourceDisksFiles]
 tabletaudiosample.sys=222
-keywordDetectorContosoAdapter.dll=222
 
 [SignatureAttributes]
 tabletaudiosample.sys=SignatureAttributes.DRM
-keyworddetectorcontosoadapter.dll=SignatureAttributes.PETrust
 
 [SignatureAttributes.DRM]
 DRMLevel=1300
@@ -32,7 +30,6 @@ PETrust=true
 
 [DestinationDirs]
 SYSVAD_SA.CopyList=13 ; 13=Package's DriverStore directory
-KEYWORDDETECTORCONTOSOADAPTER.CopyList=13 ;
 
 ;======================================================
 ; SYSVAD_SA
@@ -40,8 +37,6 @@ KEYWORDDETECTORCONTOSOADAPTER.CopyList=13 ;
 [SYSVAD_SA.CopyList]
 tabletaudiosample.sys
 
-[KEYWORDDETECTORCONTOSOADAPTER.CopyList]
-keyworddetectorcontosoadapter.dll
 
 [SYSVAD_SA.AddReg]
 HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
@@ -71,16 +66,7 @@ HKR,%MEDIA_CATEGORIES%\%MicArray3CustomNameGUID%,Name,,%MicArray3CustomName%
 HKR,%MEDIA_CATEGORIES%\%MicInCustomNameGUID%,Name,,%MicInCustomName%
 
 
-[KEYWORDDETECTORCONTOSOADAPTER.AddReg]
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID%,,,"KeywordDetectorContosoAdapter Class"
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID%\InProcServer32,,0x00020000,%13%\keyworddetectorcontosoadapter.dll
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID%\InProcServer32,ThreadingModel,,"Apartment"
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID%\Version,,,"1.0"
 
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID2%,,,"KeywordDetectorContosoAdapter2 Class"
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID2%\InProcServer32,,0x00020000,%13%\keyworddetectorcontosoadapter.dll
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID2%\InProcServer32,ThreadingModel,,"Apartment"
-HKCR,CLSID\%KEYWORDDETECTORCONTOSOADAPTER_CLSID2%\Version,,,"1.0"
 
 ;======================================================
 ; render interfaces: speaker (internal)
@@ -348,8 +334,6 @@ HKR,FX\0,%PKEY_FX_KeywordDetector_ModeEffectClsid%,,%FX_DISCOVER_EFFECTS_APO_CLS
 [SYSVAD_SA.NT]
 Include=ks.inf,wdmaudio.inf
 Needs=KS.Registration, WDMAUDIO.Registration
-CopyFiles=SYSVAD_SA.CopyList,KEYWORDDETECTORCONTOSOADAPTER.CopyList
-AddReg=SYSVAD_SA.AddReg,KEYWORDDETECTORCONTOSOADAPTER.AddReg
 
 [SYSVAD_SA.NT.Interfaces]
 ;
@@ -564,8 +548,6 @@ MicArray3CustomNameGUID = {c04bdb7c-2138-48da-9dd4-2af9ff2e58c2}
 MicInCustomNameGUID = {d48deb08-fd1c-4d1e-b821-9064d49ae96e}
 
 ; Driver developers would replace this CLSID with their own keyword detector OEM adapter
-KEYWORDDETECTORCONTOSOADAPTER_CLSID = {6F7DBCC1-202E-498D-99C5-61C36C4EB2DC}
-KEYWORDDETECTORCONTOSOADAPTER_CLSID2 = {207F3D0C-5C79-496F-A94C-D3D2934DBFA9}
 
 ;Localizable
 
