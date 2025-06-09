@@ -586,7 +586,9 @@ Return Value:
     //
     if (InterlockedCompareExchange(&CAdapterCommon::m_AdapterInstances, 1, 0) != 0)
     {
-        ntStatus = STATUS_DEVICE_BUSY;
+        // Fail initialization so Plug and Play marks the device with a
+        // yellow bang (Code 10) instead of crashing due to a second instance.
+        ntStatus = STATUS_DEVICE_CONFIGURATION_ERROR;
         DPF(D_ERROR, ("NewAdapterCommon failed, only one instance is allowed"));
         goto Done;
     }
