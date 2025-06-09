@@ -4,6 +4,9 @@
 static PDEVICE_OBJECT g_LoopbackDevice = NULL;
 static PDRIVER_DISPATCH g_PortclsDispatch[IRP_MJ_MAXIMUM_FUNCTION + 1] = {0};
 
+// Forward declaration to avoid implicit use before definition
+static NTSTATUS LoopbackDispatch(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
+
 static NTSTATUS LoopbackDriverDispatch(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 {
     if (DeviceObject == g_LoopbackDevice)
