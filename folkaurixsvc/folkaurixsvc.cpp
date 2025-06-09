@@ -222,10 +222,10 @@ int wmain(int argc, wchar_t** argv)
             bytesReturned = 0;
         }
 
-        if (bytesReturned < bytesNeeded)
-            ZeroMemory(buffer + bytesReturned, bytesNeeded - bytesReturned);
-
-        CopyMemory(pData, buffer, bytesNeeded);
+        DWORD copyBytes = min(bytesReturned, bytesNeeded);
+        CopyMemory(pData, buffer, copyBytes);
+        if (copyBytes < bytesNeeded)
+            ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
 
         if (hFile != INVALID_HANDLE_VALUE && bytesReturned > 0)
         {
