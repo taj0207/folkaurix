@@ -536,6 +536,7 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
     _Out_   MEMORY_CACHING_TYPE *CacheType_
 )
 {
+	DPF_ENTER(("[%s]", __FUNCTION__));
     PAGED_CODE();
 
     ULONG ulBufferDurationMs = 0;
@@ -1152,6 +1153,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
     _In_    KSSTATE State_
 )
 {
+	DPF_ENTER(("[%s]", __FUNCTION__));
     NTSTATUS        ntStatus        = STATUS_SUCCESS;
     PADAPTERCOMMON  pAdapterComm    = m_pMiniport->GetAdapterCommObj();
     KIRQL oldIrql;
@@ -1167,6 +1169,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
                                 m_ulCurrentWritePosition, // replace with the previous WaveRtBufferWritePosition that the driver received
                                 State_, // replace with the correct "Data length completed"
                                 0); // always zero
+    DbgPrint("SetState:(%d)",State_);
     switch (State_)
     {
         case KSSTATE_STOP:
@@ -1400,6 +1403,8 @@ VOID CMiniportWaveRTStream::UpdatePosition
     _In_ LARGE_INTEGER ilQPC
 )
 {
+	DPF_ENTER(("[%s]", __FUNCTION__));
+
     // Convert ticks to 100ns units.
     LONGLONG  hnsCurrentTime = KSCONVERT_PERFORMANCE_TIME(m_ullPerformanceCounterFrequency.QuadPart, ilQPC);
     
@@ -1473,6 +1478,7 @@ VOID CMiniportWaveRTStream::UpdatePosition
         if (!g_DoNotCreateDataFiles)
         {
             // Read from buffer and write to a file.
+            DbgPrint("%s(): Line(%d)\n", __FUNCTION__, __LINE__);
             ReadBytes(ByteDisplacement);
         }
     }

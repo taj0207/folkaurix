@@ -1558,6 +1558,7 @@ Note:
                 break;
         }
     }
+	DPF(D_TERSE,("Entering %x", NewState.DeviceState));
 } // PowerStateChange
 
 //=============================================================================

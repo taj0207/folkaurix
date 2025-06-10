@@ -4,6 +4,7 @@ static LOOPBACK_BUFFER g_LoopbackBuffer = {0};
 
 NTSTATUS LoopbackBuffer_Initialize()
 {
+	DbgPrint(("[%s]", __FUNCTION__));
     if (g_LoopbackBuffer.Buffer) return STATUS_SUCCESS;
     g_LoopbackBuffer.Size = LOOPBACK_BUFFER_SIZE;
     g_LoopbackBuffer.Buffer = (PBYTE)ExAllocatePool2(POOL_FLAG_NON_PAGED, g_LoopbackBuffer.Size, LOOPBACK_POOLTAG);
@@ -19,6 +20,7 @@ NTSTATUS LoopbackBuffer_Initialize()
 
 void LoopbackBuffer_Cleanup()
 {
+	DbgPrint(("[%s]", __FUNCTION__));
     if (g_LoopbackBuffer.Buffer)
     {
         ExFreePoolWithTag(g_LoopbackBuffer.Buffer, LOOPBACK_POOLTAG);
@@ -36,6 +38,7 @@ static __forceinline ULONG _available()
 
 void LoopbackBuffer_Write(_In_reads_bytes_(Length) PBYTE Data, _In_ ULONG Length)
 {
+	DbgPrint(("[%s]", __FUNCTION__));
     if (!g_LoopbackBuffer.Buffer) return;
     KIRQL oldIrql;
     KeAcquireSpinLock(&g_LoopbackBuffer.Lock, &oldIrql);
@@ -54,6 +57,7 @@ void LoopbackBuffer_Write(_In_reads_bytes_(Length) PBYTE Data, _In_ ULONG Length
 
 ULONG LoopbackBuffer_Read(_Out_writes_bytes_(Length) PBYTE Data, _In_ ULONG Length)
 {
+	DbgPrint(("[%s]", __FUNCTION__));
     if (!g_LoopbackBuffer.Buffer) return 0;
     KIRQL oldIrql;
     KeAcquireSpinLock(&g_LoopbackBuffer.Lock, &oldIrql);
