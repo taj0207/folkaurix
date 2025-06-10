@@ -1158,6 +1158,7 @@ Exit:
     //
     SAFE_RELEASE(pUnknownCommon);
     
+    DPF_EXIT(("[StartDevice]"));
     return ntStatus;
 } // StartDevice
 

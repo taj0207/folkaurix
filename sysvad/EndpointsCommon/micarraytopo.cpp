@@ -118,6 +118,7 @@ Return Value:
     PAGED_CODE();
 
     DPF_ENTER(("[CMicArrayMiniportTopology::~CMicArrayMiniportTopology]"));
+DPF_EXIT(("[CMicArrayMiniportTopology::~CMicArrayMiniportTopology]"));
 } // ~CMicArrayMiniportTopology
 
 //=============================================================================
@@ -261,6 +262,7 @@ Return Value:
             Port_
         );
 
+    DPF_EXIT(("[CMicArrayMiniportTopology::Init]"));
     return ntStatus;
 } // Init
 
@@ -499,6 +501,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerMicArrayGeometry]"));
     return ntStatus;
 }
 
@@ -600,6 +603,7 @@ NT status code.
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerMicProperties]"));
     return ntStatus;
 }
 
@@ -689,6 +693,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerJackDescription]"));
     return ntStatus;
 }
 
@@ -778,6 +783,7 @@ Return Value:
                         // a client application can call IKsJackDescription2::GetJackDescription2 to read 
                         // the JackCapabilities flag of the KSJACK_DESCRIPTION2 structure. If this flag has
                         // the JACKDESC2_PRESENCE_DETECT_CAPABILITY bit set, it indicates that the endpoint 
+                        DPF_EXIT(("[PropertyHandlerJackDescription2]"));
                         // does in fact support jack presence detection. In that case, the return value of 
                         // the IsConnected member can be interpreted to accurately reflect the insertion status
                         // of the jack."
@@ -795,6 +801,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerJackDescription2]"));
     return ntStatus;
 }
 
@@ -859,6 +866,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandler_MicArrayTopoFilter]"));
     return ntStatus;
 } // PropertyHandler_TopoFilter
 
@@ -895,6 +903,7 @@ Return Value:
     //
     PCMicArrayMiniportTopology pMiniport = (PCMicArrayMiniportTopology)PropertyRequest->MajorTarget;
 
+    DPF_EXIT(("[PropertyHandler_MicArrayTopology]"));
     return pMiniport->PropertyHandlerGeneric(PropertyRequest);
 } // PropertyHandler_MicArrayTopology
 

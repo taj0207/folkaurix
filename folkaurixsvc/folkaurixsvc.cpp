@@ -8,12 +8,17 @@
 #define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
 #endif
 
+#define DPF_ENTER() wprintf(L"[ENTER] %S\n", __FUNCTION__)
+#define DPF_EXIT()  wprintf(L"[EXIT] %S\n", __FUNCTION__)
+
 int wmain(int argc, wchar_t** argv)
 {
+    DPF_ENTER();
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr))
     {
         wprintf(L"CoInitializeEx failed: 0x%08lx\n", hr);
+        DPF_EXIT();
         return 1;
     }
 
@@ -24,6 +29,7 @@ int wmain(int argc, wchar_t** argv)
     {
         wprintf(L"Failed to create device enumerator: 0x%08lx\n", hr);
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -34,6 +40,7 @@ int wmain(int argc, wchar_t** argv)
         wprintf(L"EnumAudioEndpoints failed: 0x%08lx\n", hr);
         pEnumerator->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -45,6 +52,7 @@ int wmain(int argc, wchar_t** argv)
         pCollection->Release();
         pEnumerator->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
     for (UINT i = 0; i < count; ++i)
@@ -92,6 +100,7 @@ int wmain(int argc, wchar_t** argv)
         pCollection->Release();
         pEnumerator->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -103,6 +112,7 @@ int wmain(int argc, wchar_t** argv)
     {
         wprintf(L"Failed to get device: 0x%08lx\n", hr);
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -113,6 +123,7 @@ int wmain(int argc, wchar_t** argv)
         wprintf(L"Activate IAudioClient failed: 0x%08lx\n", hr);
         pRenderDevice->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -124,6 +135,7 @@ int wmain(int argc, wchar_t** argv)
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -137,6 +149,7 @@ int wmain(int argc, wchar_t** argv)
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -153,6 +166,7 @@ int wmain(int argc, wchar_t** argv)
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -169,6 +183,7 @@ int wmain(int argc, wchar_t** argv)
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
+        DPF_EXIT();
         return 1;
     }
 
@@ -177,6 +192,7 @@ int wmain(int argc, wchar_t** argv)
     if (hDevice == INVALID_HANDLE_VALUE)
     {
         wprintf(L"Failed to open device: %lu\n", GetLastError());
+        DPF_EXIT();
         return 1;
     }
 
@@ -189,6 +205,7 @@ int wmain(int argc, wchar_t** argv)
         {
             wprintf(L"Failed to open output file: %lu\n", GetLastError());
             CloseHandle(hDevice);
+            DPF_EXIT();
             return 1;
         }
     }
@@ -247,6 +264,7 @@ int wmain(int argc, wchar_t** argv)
     pAudioClient->Release();
     pRenderDevice->Release();
     CoUninitialize();
+    DPF_EXIT();
     return 0;
 }
 

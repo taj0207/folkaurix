@@ -50,6 +50,7 @@ AudioModule_GenericHandler_BasicSupport(
     {
         ASSERT(FALSE);
         *BufferCb = 0;
+        DPF_EXIT(("[AudioModule_GenericHandler_BasicSupport]"));
         return ntStatus;
     }
 
@@ -62,6 +63,7 @@ AudioModule_GenericHandler_BasicSupport(
     {
         ASSERT(FALSE);
         *BufferCb = 0;
+        DPF_EXIT(("[AudioModule_GenericHandler_BasicSupport]"));
         return ntStatus;
     }
 
@@ -86,6 +88,7 @@ AudioModule_GenericHandler_BasicSupport(
         propDesc->MembersListCount  = 1;
         propDesc->Reserved          = 0;
 
+        DPF_EXIT(("[AudioModule_GenericHandler_BasicSupport]"));
         // if return buffer can also hold a list description, return it too
         if(*BufferCb  >= cbFullProperty)
         {
@@ -103,6 +106,7 @@ AudioModule_GenericHandler_BasicSupport(
 
             RtlCopyMemory(array, ParameterInfo->ValidSet, cbDataListSize);
 
+            DPF_EXIT(("[AudioModule_GenericHandler_BasicSupport]"));
             // set the return value size
             *BufferCb  = cbFullProperty;
         } 
@@ -113,6 +117,7 @@ AudioModule_GenericHandler_BasicSupport(
     } 
     else if(*BufferCb  >= sizeof(ULONG))
     {
+        DPF_EXIT(("[AudioModule_GenericHandler_BasicSupport]"));
         // if return buffer can hold a ULONG, return the access flags
         PULONG accessFlags = PULONG(Buffer);
 
@@ -125,6 +130,7 @@ AudioModule_GenericHandler_BasicSupport(
         ntStatus = STATUS_BUFFER_TOO_SMALL;
     }
 
+    DPF_EXIT(("[AudioModule_GenericHandler_BasicSupport]"));
     return ntStatus;
 } // PropertyHandlerBasicSupportVolume
 
@@ -218,6 +224,7 @@ IsAudioModuleParameterValid(
         }
 
         //
+        DPF_EXIT(("[IsAudioModuleParameterValid]"));
         // If value is -1, return error.
         //
         if (i == ParameterInfo->Size)
@@ -230,6 +237,7 @@ IsAudioModuleParameterValid(
     validParam = TRUE;
     
 exit:
+    DPF_EXIT(("[IsAudioModuleParameterValid]"));
     return validParam;
 }
 
@@ -252,10 +260,12 @@ AudioModule_FindModuleInList(
         if (IsEqualGUIDAligned(*(module->Descriptor->ClassId), *ClassId) &&
             module->InstanceId == InstanceId)
         {
+            DPF_EXIT(("[IsAudioModuleParameterValid]"));
             return module;
         }
     }
 
+    DPF_EXIT(("[IsAudioModuleParameterValid]"));
     return NULL;
 }
 
@@ -285,6 +295,7 @@ AudioModule_GenericHandler(
     // Handle KSPROPERTY_TYPE_BASICSUPPORT query
     if (Verb & KSPROPERTY_TYPE_BASICSUPPORT)
     {
+        DPF_EXIT(("[AudioModule_GenericHandler]"));
         return AudioModule_GenericHandler_BasicSupport(ParameterInfo, OutBuffer, OutBufferCb);
     }
 
@@ -296,6 +307,7 @@ AudioModule_GenericHandler(
         if (!(ParameterInfo->AccessFlags & KSPROPERTY_TYPE_GET))
         {
             *OutBufferCb = 0;
+            DPF_EXIT(("[AudioModule_GenericHandler]"));
             return STATUS_INVALID_DEVICE_REQUEST;
         }
         
@@ -303,17 +315,20 @@ AudioModule_GenericHandler(
         if (*OutBufferCb == 0)
         {
             *OutBufferCb = cbMinSize;
+            DPF_EXIT(("[AudioModule_GenericHandler]"));
             return STATUS_BUFFER_OVERFLOW;
         }
         if (*OutBufferCb < cbMinSize)
         {
             *OutBufferCb = 0;
+            DPF_EXIT(("[AudioModule_GenericHandler]"));
             return STATUS_BUFFER_TOO_SMALL;
         }
         else
         {
             RtlCopyMemory(OutBuffer, CurrentValue, ParameterInfo->Size);
             *OutBufferCb = cbMinSize;
+            DPF_EXIT(("[AudioModule_GenericHandler]"));
             return STATUS_SUCCESS;
         }
     }
@@ -324,12 +339,14 @@ AudioModule_GenericHandler(
         // Verify it is a write prop.
         if (!(ParameterInfo->AccessFlags & KSPROPERTY_TYPE_SET))
         {
+            DPF_EXIT(("[AudioModule_GenericHandler]"));
             return STATUS_INVALID_DEVICE_REQUEST;
         }
 
         // Validate parameter.
         if (!IsAudioModuleParameterValid(ParameterInfo, InBuffer, InBufferCb))
         {
+            DPF_EXIT(("[AudioModule_GenericHandler]"));
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -340,9 +357,11 @@ AudioModule_GenericHandler(
             *ParameterChanged = TRUE;
         }
         
+        DPF_EXIT(("[AudioModule_GenericHandler]"));
         return STATUS_SUCCESS;
     }
     
+    DPF_EXIT(("[AudioModule_GenericHandler]"));
     return STATUS_INVALID_DEVICE_REQUEST;
 }
 
@@ -366,6 +385,7 @@ AudioModule_GenericHandler_ModulesListRequest(
     DPF_ENTER(("[AudioModule_PropertyHandlerModulesListRequest]"));
 
     //
+    DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
     // Note: return an empty list when no modules are present.
     //
     
@@ -373,6 +393,7 @@ AudioModule_GenericHandler_ModulesListRequest(
     if (PropertyRequest->Verb & KSPROPERTY_TYPE_BASICSUPPORT)
     {
         ULONG flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
+        DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
         return PropertyHandler_BasicSupport(PropertyRequest, flags, VT_ILLEGAL);
     }
 
@@ -391,6 +412,7 @@ AudioModule_GenericHandler_ModulesListRequest(
         if (!NT_SUCCESS(ntStatus))
         {
             ASSERT(FALSE);
+            DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
             return ntStatus;
         }
         
@@ -398,6 +420,7 @@ AudioModule_GenericHandler_ModulesListRequest(
         if (!NT_SUCCESS(ntStatus))
         {
             ASSERT(FALSE);
+            DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
             return ntStatus;
         }
 
@@ -405,10 +428,12 @@ AudioModule_GenericHandler_ModulesListRequest(
         if (PropertyRequest->ValueSize == 0)
         {
             PropertyRequest->ValueSize = cbMinSize;
+            DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
             return STATUS_BUFFER_OVERFLOW;
         }
         if (PropertyRequest->ValueSize < cbMinSize)
         {
+            DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
             return STATUS_BUFFER_TOO_SMALL;
         }
         
@@ -438,9 +463,11 @@ AudioModule_GenericHandler_ModulesListRequest(
         ksMultipleItem->Count = AudioModuleCount;
 
         PropertyRequest->ValueSize = ksMultipleItem->Size;
+        DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
         return STATUS_SUCCESS;
     }
 
+    DPF_EXIT(("[AudioModule_PropertyHandlerModulesListRequest]"));
     return STATUS_INVALID_DEVICE_REQUEST;
 } // AudioModule_GenericHandler_ModulesListRequest
 
@@ -465,6 +492,7 @@ AudioModule_GenericHandler_ModuleCommand(
     if (AudioModules == NULL || AudioModuleCount == 0)
     {
         // endpoint/stream doesn't have any modules.
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
         return STATUS_INVALID_DEVICE_REQUEST;
     }
     
@@ -473,6 +501,7 @@ AudioModule_GenericHandler_ModuleCommand(
     if (PropertyRequest->InstanceSize < (sizeof(KSAUDIOMODULE_PROPERTY) - 
             RTL_SIZEOF_THROUGH_FIELD(KSAUDIOMODULE_PROPERTY, Property)))
     {
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -492,6 +521,7 @@ AudioModule_GenericHandler_ModuleCommand(
         module->Descriptor == NULL || 
         module->Descriptor->Handler == NULL)
     {
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
         return STATUS_INVALID_PARAMETER;
     }
     
@@ -500,6 +530,7 @@ AudioModule_GenericHandler_ModuleCommand(
     {
         ULONG flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
 
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
         return PropertyHandler_BasicSupport(PropertyRequest, flags, VT_ILLEGAL);
     }
 
@@ -534,14 +565,18 @@ AudioModule_GenericHandler_ModuleCommand(
                                               outBuffer,
                                               &outBufferCb);
         //
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
         // Set the size of the returned output data, or in the case of
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
         // buffer overflow error, return the expected buffer length.
         //
         PropertyRequest->ValueSize = outBufferCb;
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
         return status;
     }
 
     PropertyRequest->ValueSize = 0;
+    DPF_EXIT(("[AudioModule_GenericHandler_ModuleCommand]"));
     return STATUS_INVALID_DEVICE_REQUEST;
 } // AudioModule_GenericHandler_ModuleCommand
 
@@ -562,6 +597,7 @@ AudioModule_GenericHandler_ModuleNotificationDeviceId(
     //
     if (NotificationDeviceId == NULL)
     {
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleNotificationDeviceId]"));
         return STATUS_INVALID_DEVICE_REQUEST;
     }
 
@@ -570,6 +606,7 @@ AudioModule_GenericHandler_ModuleNotificationDeviceId(
     {
         ULONG flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
 
+        DPF_EXIT(("[AudioModule_GenericHandler_ModuleNotificationDeviceId]"));
         return PropertyHandler_BasicSupport(PropertyRequest, flags, VT_ILLEGAL);
     }
 
@@ -582,10 +619,12 @@ AudioModule_GenericHandler_ModuleNotificationDeviceId(
         if (PropertyRequest->ValueSize == 0)
         {
             PropertyRequest->ValueSize = cbMinSize;
+            DPF_EXIT(("[AudioModule_GenericHandler_ModuleNotificationDeviceId]"));
             return STATUS_BUFFER_OVERFLOW;
         }
         if (PropertyRequest->ValueSize < cbMinSize)
         {
+            DPF_EXIT(("[AudioModule_GenericHandler_ModuleNotificationDeviceId]"));
             return STATUS_BUFFER_TOO_SMALL;
         }
         else
@@ -593,10 +632,12 @@ AudioModule_GenericHandler_ModuleNotificationDeviceId(
             *dataPtr = *NotificationDeviceId;
             PropertyRequest->ValueSize = cbMinSize;
 
+            DPF_EXIT(("[AudioModule_GenericHandler_ModuleNotificationDeviceId]"));
             return STATUS_SUCCESS;
         }
     }
 
+    DPF_EXIT(("[AudioModule_GenericHandler_ModuleNotificationDeviceId]"));
     return STATUS_INVALID_DEVICE_REQUEST;
 }
 

@@ -85,6 +85,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetAudioEngineDescriptor(_In_ ULONG _ul
     {
         ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     }
+    DPF_EXIT(("[CMiniportWaveRT::GetAudioEngineDescriptor]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -98,6 +99,7 @@ Description:
 Parameters
     
     _In_ _ulNodeId: node id for the target audio engine node
+    DPF_EXIT(("[CMiniportWaveRT::GetAudioEngineDescriptor]"));
     _Out_ pbEnable: a pointer to a BOOL value for receieving the returned GFX state
 
 Return Value:
@@ -108,6 +110,7 @@ Called at PASSIVE_LEVEL
 
 Remarks
     The global operations (on the device stream) inside HW Audio Engine (such as src, dsp, and other special effects) are hidden from the software audio stack.
+DPF_EXIT(("[CMiniportWaveRT::GetAudioEngineDescriptor]"));
 So, the driver should return TRUE if any one of the effects is on and returns FALSE when all the opertations are off.
 -------------------------------------------------------------------------------------------------------------------------*/
 STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetGfxState(_In_ ULONG _ulNodeId, _Out_ BOOL *_pbEnable)
@@ -119,6 +122,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetGfxState(_In_ ULONG _ulNodeId, _Out_
     UNREFERENCED_PARAMETER(_ulNodeId);
 
     *_pbEnable = m_bGfxEnabled;
+    DPF_EXIT(("[CMiniportWaveRT::GetGfxState]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -155,6 +159,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::SetGfxState(_In_ ULONG _ulNodeId, _In_ 
     
     // see above comments for appropriate enabling/disabling opertations on the HW Audio Engine
     m_bGfxEnabled = _bEnable;
+    DPF_EXIT(("[CMiniportWaveRT::SetGfxState]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -171,6 +176,7 @@ Parameters:
 
         _In_ _ulNodeId: node id for the target audio engine node
         _In_ eEngineFormatType: format target to indicate which format size is being asked
+        DPF_EXIT(("[CMiniportWaveRT::SetGfxState]"));
         _Out_ pulFormatSize: a pointer to a ULONG variable for receiving returned szize information
 
 Return Value:
@@ -216,6 +222,7 @@ NTSTATUS CMiniportWaveRT::GetEngineFormatSize
             break;
     }
 Exit:
+    DPF_EXIT(("[eSupportedDeviceFormats]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -224,6 +231,7 @@ IMiniportAudioEngineNode::GetMixFormat
  
 Decscription:
 
+    DPF_EXIT(("[eSupportedDeviceFormats]"));
     GetMixFormat returns the current mix format used by the HW Audio Engine
 
 Parameters:
@@ -264,6 +272,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetMixFormat(_In_  ULONG    _ulNodeId, 
     ntStatus = STATUS_SUCCESS;
 
 Exit:    
+    DPF_EXIT(("[CMiniportWaveRT::GetMixFormat]"));
     return ntStatus;
 }
 /*-----------------------------------------------------------------------------
@@ -271,6 +280,7 @@ IMiniportAudioEngineNode::GetDeviceFormat
  
 Decscription:
 
+    DPF_EXIT(("[CMiniportWaveRT::GetMixFormat]"));
     GetDeviceFormat returns the current device format used by the HW Audio Engine
 
 Parameters:
@@ -311,6 +321,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetDeviceFormat(_In_ ULONG _ulNodeId, _
     ntStatus = STATUS_SUCCESS;
 
 Exit:    
+    DPF_EXIT(("[CMiniportWaveRT::GetDeviceFormat]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -353,6 +364,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::SetDeviceFormat(_In_  ULONG _ulNodeId, 
     ntStatus = STATUS_SUCCESS;
 
 Exit:    
+    DPF_EXIT(("[CMiniportWaveRT::SetDeviceFormat]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -404,6 +416,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetSupportedDeviceFormats(_In_  ULONG _
     ntStatus = STATUS_SUCCESS;
 
 Exit:    
+    DPF_EXIT(("[CMiniportWaveRT::GetSupportedDeviceFormats]"));
     return ntStatus;
 }
 /*-----------------------------------------------------------------------------
@@ -419,6 +432,7 @@ Parameters:
 
         _In_ _ulNodeId: node id for the target audio engine node
         _In_ _targetType:  the query target (volume. mute, or peak meter)
+        DPF_EXIT(("[CMiniportWaveRT::GetSupportedDeviceFormats]"));
         _Out_ _pulChannelCount: a pointer to a UINT32 variable for receiving returned channel count information
 
 Return Value:
@@ -463,6 +477,7 @@ NTSTATUS CMiniportWaveRT::GetDeviceChannelCount
             break;
     }
 Exit:
+    DPF_EXIT(("[CMiniportWaveRT::GetChannelCount]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -479,6 +494,7 @@ Parameters:
 
         _In_ _ulNodeId: node id for the target audio engine node
         _In_ _targetType:  the query target (volume. mute, or peak meter)
+        DPF_EXIT(("[CMiniportWaveRT::GetChannelCount]"));
         _Out_ _pKsPropMembHead: a pointer to a PKSPROPERTY_STEPPING_LONG variable for receiving returned channel count information
         _In_ ulBufferSize: a pointer to a ULONG variable that has the size of the buffer pointed by _pKsPropMembHead
 
@@ -516,6 +532,7 @@ NTSTATUS CMiniportWaveRT::GetDeviceAttributeSteppings(_In_  ULONG _ulNodeId, _In
             break;
     }
 Exit:
+     DPF_EXIT(("[CMiniportWaveRT::GetDeviceAttributeSteppings]"));
      return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -531,6 +548,7 @@ Parameters:
 
         _In_ _ulNodeId: node id for the target audio engine node
         _In_ _uiChannel:  the target channel for this GET volume operation
+        DPF_EXIT(("[CMiniportWaveRT::GetDeviceAttributeSteppings]"));
         _Out_ _pVolume: a pointer to a LONG variable for receiving returned information
 
 Return Value:
@@ -554,6 +572,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetDeviceChannelVolume(_In_  ULONG _ulN
     ntStatus = GetChannelVolume(_uiChannel, _pVolume);
 
 Exit:
+    DPF_EXIT(("[CMiniportWaveRT::GetDeviceChannelVolume]"));
     return ntStatus;
 }
 
@@ -593,6 +612,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::SetDeviceChannelVolume(_In_  ULONG _ulN
     ntStatus = SetChannelVolume(_uiChannel, _Volume);
 
 Exit:
+    DPF_EXIT(("[CMiniportWaveRT::SetDeviceChannelVolume]"));
     return ntStatus;
 }
 
@@ -609,6 +629,7 @@ Parameters:
 
         _In_ _ulNodeId: node id for the target audio engine node
         _In_ _uiChannel:  the target channel for this GET volume operation
+        DPF_EXIT(("[CMiniportWaveRT::SetDeviceChannelVolume]"));
         _Out_ _pPeakMeterValue: a pointer to a LONG variable for receiving returned information
 
 Return Value:
@@ -630,6 +651,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetDeviceChannelPeakMeter(_In_  ULONG _
     ntStatus = GetChannelPeakMeter(_uiChannel, _pPeakMeterValue);
 
 Exit:
+    DPF_EXIT(("[CMiniportWaveRT::GetDeviceChannelPeakMeter]"));
     return ntStatus;
 }
 /*-----------------------------------------------------------------------------
@@ -644,6 +666,7 @@ Parameters:
 
         _In_ _ulNodeId: node id for the target audio engine node
         _In_ _uiChannel:  the target channel for this GET volume operation
+        DPF_EXIT(("[CMiniportWaveRT::GetDeviceChannelPeakMeter]"));
         _Out_ _pbMute: a pointer to a BOOL variable for receiving returned information
 
 Return Value:
@@ -667,6 +690,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetDeviceChannelMute(_In_  ULONG _ulNod
 
     ntStatus = GetChannelMute(_uiChannel, _pbMute);
 Exit:
+    DPF_EXIT(("[CMiniportWaveRT::GetEndpointChannelMute]"));
     return ntStatus;
 }
 
@@ -706,6 +730,7 @@ NTSTATUS CMiniportWaveRT::SetDeviceChannelMute(_In_  ULONG _ulNodeId, _In_ UINT3
     ntStatus = SetChannelMute(_uiChannel, _bMute);
 
 Exit:
+    DPF_EXIT(("[CMiniportWaveRT::SetEndpointChannelMute]"));
     return ntStatus;
 }
 
@@ -751,6 +776,7 @@ NTSTATUS CMiniportWaveRT::GetBufferSizeRange(_In_  ULONG _ulNodeId, _In_ KSDATAF
     _pBufferSizeRange->MinBufferBytes = (_pKsDataFormatWfx->WaveFormatEx.nAvgBytesPerSec * MIN_BUFFER_DURATION_MS) / MS_PER_SEC;
     _pBufferSizeRange->MaxBufferBytes = (_pKsDataFormatWfx->WaveFormatEx.nAvgBytesPerSec * MAX_BUFFER_DURATION_MS) / MS_PER_SEC;
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetStreamBufferSizeRange]"));
     return ntStatus;
 }
 
@@ -780,6 +806,7 @@ NTSTATUS CMiniportWaveRT::GetVolumeChannelCount(_Out_  UINT32 *_pulChannelCount)
     {
         *_pulChannelCount = m_DeviceMaxChannels;
     }
+     DPF_EXIT(("[CMiniportWaveRT::GetVolumeChannelCount]"));
      return ntStatus;
 }
 
@@ -806,6 +833,7 @@ NTSTATUS CMiniportWaveRT::GetVolumeSteppings(_Out_writes_bytes_(_ui32DataSize) P
 
         if (ulChannelCount > pMembers->MembersCount)
         {
+            DPF_EXIT(("[CMiniportWaveRT::GetVolumeSteppings]"));
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -822,6 +850,7 @@ NTSTATUS CMiniportWaveRT::GetVolumeSteppings(_Out_writes_bytes_(_ui32DataSize) P
         ASSERT(ulChannelCount <= m_DeviceMaxChannels);
         if (ulChannelCount > m_DeviceMaxChannels)
         {
+            DPF_EXIT(("[CMiniportWaveRT::GetVolumeSteppings]"));
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -832,6 +861,7 @@ NTSTATUS CMiniportWaveRT::GetVolumeSteppings(_Out_writes_bytes_(_ui32DataSize) P
             _pKsPropStepLong[i].Bounds.SignedMinimum = VOLUME_SIGNED_MINIMUM;
         }
     }
+    DPF_EXIT(("[CMiniportWaveRT::GetVolumeSteppings]"));
     return STATUS_SUCCESS;
 }
 
@@ -875,6 +905,7 @@ NTSTATUS CMiniportWaveRT::GetChannelVolume(_In_  UINT32 _uiChannel, _Out_ LONG *
         }
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::GetChannelVolume]"));
     return status;
 }
 #pragma code_seg("PAGE")
@@ -886,6 +917,7 @@ NTSTATUS CMiniportWaveRT::SetChannelVolume(_In_  UINT32 _uiChannel, _In_  LONG _
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
     if (IsSidebandDevice() && m_pSidebandDevice->IsVolumeSupported(m_DeviceType))
     {
+        DPF_EXIT(("[CMiniportWaveRT::SetChannelVolume]"));
         return m_pSidebandDevice->SetVolume(m_DeviceType, _uiChannel, _Volume);
     }
     else
@@ -913,6 +945,7 @@ NTSTATUS CMiniportWaveRT::SetChannelVolume(_In_  UINT32 _uiChannel, _In_  LONG _
         }
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::SetChannelVolume]"));
     return STATUS_SUCCESS;
 }
 ///- metering
@@ -925,6 +958,7 @@ NTSTATUS CMiniportWaveRT::GetPeakMeterChannelCount(_Out_  UINT32 *_pulChannelCou
 
     DPF_ENTER(("[CMiniportWaveRT::GetVolumeChannelCount]"));
     *_pulChannelCount = m_DeviceMaxChannels;
+     DPF_EXIT(("[CMiniportWaveRT::GetVolumeChannelCount]"));
      return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -940,6 +974,7 @@ NTSTATUS CMiniportWaveRT::GetPeakMeterSteppings(_Out_writes_bytes_(_ui32DataSize
 
     if (ulChannelCount > m_DeviceMaxChannels)
     {
+        DPF_EXIT(("[CMiniportWaveRT::GetVolumeSteppings]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -949,6 +984,7 @@ NTSTATUS CMiniportWaveRT::GetPeakMeterSteppings(_Out_writes_bytes_(_ui32DataSize
         _pKsPropStepLong[i].Bounds.SignedMaximum = PEAKMETER_SIGNED_MAXIMUM;
         _pKsPropStepLong[i].Bounds.SignedMinimum = PEAKMETER_SIGNED_MINIMUM;
     }
+    DPF_EXIT(("[CMiniportWaveRT::GetVolumeSteppings]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -962,6 +998,7 @@ NTSTATUS CMiniportWaveRT::GetChannelPeakMeter(_In_  UINT32 _uiChannel, _Out_  LO
 
     if (_uiChannel >= m_DeviceMaxChannels)
     {
+        DPF_EXIT(("[CMiniportWaveRT::GetChannelPeakMeter]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -975,6 +1012,7 @@ NTSTATUS CMiniportWaveRT::GetChannelPeakMeter(_In_  UINT32 _uiChannel, _Out_  LO
     }
     //*_plPeakMeter = m_plPeakMeter[lChannel];
 
+    DPF_EXIT(("[CMiniportWaveRT::GetChannelPeakMeter]"));
     return STATUS_SUCCESS;
 }
 // mute
@@ -1001,6 +1039,7 @@ NTSTATUS CMiniportWaveRT::GetMuteChannelCount(_Out_  UINT32 *_pulChannelCount)
     {
         *_pulChannelCount = m_DeviceMaxChannels;
     }
+     DPF_EXIT(("[CMiniportWaveRT::GetMuteChannelCount]"));
      return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -1027,6 +1066,7 @@ NTSTATUS CMiniportWaveRT::GetMuteSteppings(_Out_writes_bytes_(_ui32DataSize)  PK
 
         if (ulChannelCount > pMembers->MembersCount)
         {
+            DPF_EXIT(("[CMiniportWaveRT::GetMuteSteppings]"));
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -1045,6 +1085,7 @@ NTSTATUS CMiniportWaveRT::GetMuteSteppings(_Out_writes_bytes_(_ui32DataSize)  PK
 
         if (ulChannelCount > m_DeviceMaxChannels)
         {
+            DPF_EXIT(("[CMiniportWaveRT::GetMuteSteppings]"));
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -1055,6 +1096,7 @@ NTSTATUS CMiniportWaveRT::GetMuteSteppings(_Out_writes_bytes_(_ui32DataSize)  PK
             _pKsPropStepLong[i].Bounds.SignedMinimum = FALSE;
         }
     }
+    DPF_EXIT(("[CMiniportWaveRT::GetMuteSteppings]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -1083,6 +1125,7 @@ NTSTATUS CMiniportWaveRT::GetChannelMute(_In_  UINT32 _uiChannel, _Out_  BOOL *_
         }
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::GetChannelMute]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -1094,6 +1137,7 @@ NTSTATUS CMiniportWaveRT::SetChannelMute(_In_  UINT32 _uiChannel, _In_  BOOL _bM
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
     if (IsSidebandDevice() && m_pSidebandDevice->IsMuteSupported(m_DeviceType))
     {
+        DPF_EXIT(("[CMiniportWaveRT::SetChannelMute]"));
         return m_pSidebandDevice->SetMute(m_DeviceType, _uiChannel, _bMute);
     }
 #endif
@@ -1112,6 +1156,7 @@ NTSTATUS CMiniportWaveRT::SetChannelMute(_In_  UINT32 _uiChannel, _In_  BOOL _bM
         m_pbMuted[_uiChannel] = _bMute;
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::SetChannelMute]"));
     return STATUS_SUCCESS;
 }
 
@@ -1182,6 +1227,7 @@ Return Value:
     }
 
 Done:
+    DPF_EXIT(("[CMiniportWaveRT::SetLoopbackProtection]"));
     return ntStatus;
 }
 

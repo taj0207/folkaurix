@@ -56,6 +56,7 @@ DEFINE_GUIDSTRUCT("5B722BF8-F0AB-47ee-B9C8-8D61D31375A1", PID_SYSVAD);
 #define D_ERROR                     DEBUGLVL_ERROR          
 #define DPF                         _DbgPrintF
 #define DPF_ENTER(x)                DPF(D_FUNC, x)
+#define DPF_EXIT(x)                 DPF(D_FUNC, x)
 
 // Channel orientation
 #define CHAN_LEFT                   0

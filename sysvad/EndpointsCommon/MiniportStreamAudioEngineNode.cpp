@@ -51,6 +51,7 @@ NTSTATUS CMiniportWaveRTStream::GetLfxState(_Out_ BOOL *_pbEnable)
     DPF_ENTER(("[CMiniportWaveRTStream::GetLfxState]"));
 
     *_pbEnable = m_bLfxEnabled;
+    DPF_EXIT(("[CMiniportWaveRTStream::GetLfxState]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -84,6 +85,7 @@ NTSTATUS CMiniportWaveRTStream::SetLfxState(_In_ BOOL _bEnable)
 
     UNREFERENCED_PARAMETER(_bEnable);
     m_bLfxEnabled = _bEnable;
+    DPF_EXIT(("[CMiniportWaveRTStream::SetGfxState]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -98,6 +100,7 @@ Decscription:
 Parameters:
 
         _In_ _uiChannel:  the target channel for this GET volume operation
+        DPF_EXIT(("[CMiniportWaveRTStream::SetGfxState]"));
         _Out_ _pVolume: a pointer to a LONG variable for receiving returned information
 
 Return Value:
@@ -117,6 +120,7 @@ NTSTATUS CMiniportWaveRTStream::GetStreamChannelVolume(_In_ UINT32 _uiChannel, _
 
     *_pVolume = m_plVolumeLevel[_uiChannel];
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetStreamChannelVolume]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -131,6 +135,7 @@ Decscription:
 Parameters:
 
         _In_ _uiChannel:  the target channel for this GET volume operation
+        DPF_EXIT(("[CMiniportWaveRTStream::GetStreamChannelVolume]"));
         _Out_ _pbMute: a pointer to a BOOL variable for receiving returned information
 
 Return Value:
@@ -152,6 +157,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRTStream::GetStreamChannelMute(_In_ UINT32 
     DPF_ENTER(("[CMiniportWaveRTStream::GetStreamChannelMute]"));
     ntStatus = GetChannelMute(_uiChannel, _pbMute);
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetStreamChannelMute]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -167,6 +173,7 @@ Decscription:
 Parameters:
 
         _In_ _targetType:  the query target (volume. mute, or peak meter)
+        DPF_EXIT(("[CMiniportWaveRTStream::GetStreamChannelMute]"));
         _Out_ _pKsPropMembHead: a pointer to a PKSPROPERTY_STEPPING_LONG variable for receiving returned channel count information
         _In_ ulBufferSize: a pointer to a ULONG variable that has the size of the buffer pointed by _pKsPropMembHead
 
@@ -202,6 +209,7 @@ NTSTATUS CMiniportWaveRTStream::GetStreamAttributeSteppings(_In_  eChannelTarget
             ntStatus = STATUS_INVALID_DEVICE_REQUEST;
             break;
     }
+     DPF_EXIT(("[CMiniportWaveRTStream::GetDeviceAttributeSteppings]"));
      return ntStatus;
 
 }
@@ -262,6 +270,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRTStream::SetStreamChannelVolume
         ntStatus = SetChannelVolume(Channel, lVolume);
     }
 
+    DPF_EXIT(("[CMiniportWaveRTStream::SetStreamChannelVolume]"));
     return ntStatus;
 }
 
@@ -277,6 +286,7 @@ Decscription:
 Parameters:
 
         _In_ _uiChannel:  the target channel for this GET peak meter operation
+    DPF_EXIT(("[CMiniportWaveRTStream::SetStreamChannelVolume]"));
     _Out_ _pPeakMeterValue: a pointer to a LONG variable for receiving returned information
 
 Return Value:
@@ -298,6 +308,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRTStream::GetStreamChannelPeakMeter(_In_ UI
 
     ntStatus = GetChannelPeakMeter(_uiChannel, _pPeakMeterValue);
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetStreamChannelPeakMeter]"));
     return ntStatus;
 }
 
@@ -345,6 +356,7 @@ NTSTATUS CMiniportWaveRTStream::SetStreamChannelMute(_In_ UINT32 _uiChannel, _In
         ntStatus = SetChannelMute(_uiChannel, _bMute);
     }
  
+    DPF_EXIT(("[CMiniportWaveRTStream::SetStreamChannelMute]"));
     return ntStatus;
 }
 //presentation
@@ -359,6 +371,7 @@ Decscription:
 
 Parameters:
 
+        DPF_EXIT(("[CMiniportWaveRTStream::SetStreamChannelMute]"));
         _Out_ pPresentationPosition: a pointer to a KSAUDIO_PRESENTATION_POSITION variable for receiving returned information
 
 Return Value:
@@ -380,6 +393,7 @@ NTSTATUS CMiniportWaveRTStream::GetStreamPresentationPosition(_Out_ KSAUDIO_PRES
 
     ntStatus = GetPresentationPosition(_pPresentationPosition);
  
+    DPF_EXIT(("[CMiniportWaveRTStream::GetStreamPresentationPosition]"));
     return ntStatus;
 }
 //StreamCurrentWritePosition
@@ -424,6 +438,7 @@ NTSTATUS CMiniportWaveRTStream::SetStreamCurrentWritePosition(_In_ ULONG _ulCurr
 
     ntStatus = SetCurrentWritePosition(_ulCurrentWritePosition);
 
+    DPF_EXIT(("[CMiniportWaveRTStream::SetStreamCurrentWritePosition]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -437,6 +452,7 @@ Decscription:
 
 Parameters:
 
+        DPF_EXIT(("[CMiniportWaveRTStream::SetStreamCurrentWritePosition]"));
         _Out_ pullLinearBufferPosition: a pointer to a ULONGLONG variable for receiving returned information
 
 
@@ -447,6 +463,7 @@ Return Value:
 Called at PASSIVE_LEVEL
 
 Remarks
+DPF_EXIT(("[CMiniportWaveRTStream::SetStreamCurrentWritePosition]"));
 The returned  value is the number of bytes that the DMA has fetched from the audio buffer since the beginning of the stream
 -------------------------------------------------------------------------------------------------------------------------*/
 NTSTATUS CMiniportWaveRTStream::GetStreamLinearBufferPosition(_Out_ ULONGLONG *_pullLinearBufferPosition)
@@ -459,6 +476,7 @@ NTSTATUS CMiniportWaveRTStream::GetStreamLinearBufferPosition(_Out_ ULONGLONG *_
 
     ntStatus = GetPositions(_pullLinearBufferPosition, NULL, NULL);
  
+    DPF_EXIT(("[CMiniportWaveRTStream::GetStreamLinearBufferPosition]"));
     return ntStatus;
 }
 //SetStreamLoopbackProtection
@@ -498,6 +516,7 @@ NTSTATUS CMiniportWaveRTStream::SetStreamLoopbackProtection(_In_ CONSTRICTOR_OPT
     // 
     ntStatus = m_pMiniport->SetLoopbackProtection(protectionOption);
     
+    DPF_EXIT(("[CMiniportWaveRTStream::SetStreamLoopbackProtection]"));
     return ntStatus;
 }
 #pragma code_seg("PAGE")
@@ -513,6 +532,7 @@ Decscription:
 Parameters:
 
         _In_ _targetType:  the query target (volume, mute, or peak meter)
+        DPF_EXIT(("[CMiniportWaveRTStream::SetStreamLoopbackProtection]"));
         _Out_ _pulChannelCount: a pointer to a UINT32 variable for receiving returned channel count information
 
 Return Value:
@@ -548,6 +568,7 @@ NTSTATUS CMiniportWaveRTStream::GetStreamChannelCount(_In_  eChannelTargetType  
             break;
     }
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetStreamChannelCount]"));
     return ntStatus;
 }
 
@@ -567,6 +588,7 @@ NTSTATUS CMiniportWaveRTStream::GetVolumeChannelCount(_Out_ UINT32 *_puiChannelC
 
     NTSTATUS ntStatus = STATUS_SUCCESS;
     *_puiChannelCount = m_pWfExt->Format.nChannels;
+    DPF_EXIT(("[CMiniportWaveRTStream::GetVolumeChannelCount]"));
     return ntStatus;
 }
 
@@ -580,6 +602,7 @@ NTSTATUS CMiniportWaveRTStream::GetVolumeSteppings(_Out_writes_bytes_(_ui32DataS
 
     if (ulChannelCount != m_pWfExt->Format.nChannels)
     {
+        DPF_EXIT(("[CMiniportWaveRTStream::GetVolumeSteppings]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -590,6 +613,7 @@ NTSTATUS CMiniportWaveRTStream::GetVolumeSteppings(_Out_writes_bytes_(_ui32DataS
         _pKsPropStepLong[i].Bounds.SignedMinimum = VOLUME_SIGNED_MINIMUM;
     }
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetVolumeSteppings]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -601,6 +625,7 @@ NTSTATUS CMiniportWaveRTStream::GetChannelVolume(_In_  UINT32 _uiChannel, _Out_ 
 
     *_pVolume = m_plVolumeLevel[_uiChannel];
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetChannelVolume]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -611,6 +636,7 @@ NTSTATUS CMiniportWaveRTStream::SetChannelVolume(_In_  UINT32 _uiChannel, _In_  
 
     m_plVolumeLevel[_uiChannel] = _Volume;
 
+    DPF_EXIT(("[CMiniportWaveRTStream::SetChannelVolume]"));
     return STATUS_SUCCESS;
 }
 ///- metering
@@ -626,6 +652,7 @@ NTSTATUS CMiniportWaveRTStream::GetPeakMeterChannelCount(_Out_ UINT32 *puiChanne
 
     NTSTATUS ntStatus = STATUS_SUCCESS;
     *puiChannelCount = m_pWfExt->Format.nChannels;
+    DPF_EXIT(("[CMiniportWaveRTStream::GetPeakMeterChannelCount]"));
     return ntStatus;
 }
 
@@ -640,6 +667,7 @@ NTSTATUS CMiniportWaveRTStream::GetPeakMeterSteppings(_Out_writes_bytes_(_ui32Da
 
     if (ulChannelCount != m_pWfExt->Format.nChannels)
     {
+        DPF_EXIT(("[CMiniportWaveRTStream::GetPeakMeterSteppings]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -650,6 +678,7 @@ NTSTATUS CMiniportWaveRTStream::GetPeakMeterSteppings(_Out_writes_bytes_(_ui32Da
         _pKsPropStepLong[i].Bounds.SignedMinimum = PEAKMETER_SIGNED_MINIMUM;
     }
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetPeakMeterSteppings]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -662,6 +691,7 @@ NTSTATUS CMiniportWaveRTStream::GetChannelPeakMeter(_In_  UINT32 _uiChannel, _Ou
 
     *_plPeakMeter = PEAKMETER_NORMALIZE_IN_RANGE(PEAKMETER_SIGNED_MAXIMUM / 2);
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetChannelPeakMeter]"));
     return STATUS_SUCCESS;
 }
 
@@ -679,6 +709,7 @@ NTSTATUS CMiniportWaveRTStream::GetMuteChannelCount(_Out_ UINT32 *puiChannelCoun
 
     NTSTATUS ntStatus = STATUS_SUCCESS;
     *puiChannelCount = m_pWfExt->Format.nChannels;
+    DPF_EXIT(("[CMiniportWaveRTStream::GetMuteChannelCount]"));
     return ntStatus;
 }
 
@@ -693,6 +724,7 @@ NTSTATUS CMiniportWaveRTStream::GetMuteSteppings(_Out_writes_bytes_(_ui32DataSiz
 
     if (ulChannelCount != m_pWfExt->Format.nChannels)
     {
+        DPF_EXIT(("[CMiniportWaveRTStream::GetMuteSteppings]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -703,6 +735,7 @@ NTSTATUS CMiniportWaveRTStream::GetMuteSteppings(_Out_writes_bytes_(_ui32DataSiz
         _pKsPropStepLong[i].Bounds.SignedMinimum = FALSE;
     }
 
+    DPF_EXIT(("[CMiniportWaveRTStream::GetMuteSteppings]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -713,6 +746,7 @@ NTSTATUS CMiniportWaveRTStream::GetChannelMute(_In_  UINT32 _uiChannel, _Out_  B
     DPF_ENTER(("[CMiniportWaveRTStream::GetChannelMute]"));
 
     *_pbMute = m_pbMuted[_uiChannel];
+    DPF_EXIT(("[CMiniportWaveRTStream::GetChannelMute]"));
     return STATUS_SUCCESS;
 }
 #pragma code_seg("PAGE")
@@ -723,6 +757,7 @@ NTSTATUS CMiniportWaveRTStream::SetChannelMute(_In_  UINT32 _uiChannel, _In_  BO
 
     m_pbMuted[_uiChannel] = _bMute;
 
+    DPF_EXIT(("[CMiniportWaveRTStream::SetChannelMute]"));
     return STATUS_SUCCESS;
 }
 //presentation
@@ -750,6 +785,7 @@ NTSTATUS CMiniportWaveRTStream::GetPresentationPosition(_Out_  KSAUDIO_PRESENTAT
     status = GetPositions(&ullLinearPosition, &ullPresentationPosition, &timeStamp);
     if (!NT_SUCCESS(status)) 
     { 
+        DPF_EXIT(("[CMiniportWaveRTStream::GetPresentationPosition]"));
         return status;
     }
 
@@ -766,6 +802,7 @@ NTSTATUS CMiniportWaveRTStream::GetPresentationPosition(_Out_  KSAUDIO_PRESENTAT
                                 m_ulCurrentWritePosition,
                                 _pPresentationPosition->u64PositionInBlocks,
                                 0);  // always zero
+    DPF_EXIT(("[CMiniportWaveRTStream::GetPresentationPosition]"));
     return STATUS_SUCCESS;
 }
 
@@ -799,6 +836,7 @@ NTSTATUS CMiniportWaveRTStream::SetCurrentWritePosition(_In_  ULONG _ulCurrentWr
     KeReleaseSpinLock(&m_PositionSpinLock, oldIrql);
 
 Done:
+    DPF_EXIT(("[CMiniportWaveRTStream::SetCurrentWritePosition]"));
     return ntStatus;
 }
 
@@ -811,11 +849,13 @@ NTSTATUS CMiniportWaveRTStream::SetCurrentWritePositionInternal(_In_  ULONG _ulC
 
     if (m_bEoSReceived)
     {
+        DPF_EXIT(("[CMiniportWaveRTStream::SetCurrentWritePositionInternal]"));
         return STATUS_INVALID_DEVICE_REQUEST;
     }
 
     if (_ulCurrentWritePosition > m_ulDmaBufferSize)
     {
+        DPF_EXIT(("[CMiniportWaveRTStream::SetCurrentWritePositionInternal]"));
         return STATUS_INVALID_DEVICE_REQUEST;
     }
     
@@ -855,6 +895,7 @@ NTSTATUS CMiniportWaveRTStream::SetCurrentWritePositionInternal(_In_  ULONG _ulC
     m_ulCurrentWritePosition = _ulCurrentWritePosition;
     InterlockedExchange(&m_IsCurrentWritePositionUpdated, 1);
 
+    DPF_EXIT(("[CMiniportWaveRTStream::SetCurrentWritePositionInternal]"));
     return STATUS_SUCCESS;
 }
 
@@ -881,6 +922,7 @@ NTSTATUS CMiniportWaveRTStream::GetPositions(
 
     // Update *_pullLinearBufferPosition with the the number of bytes fetched from waveRT ever since a stream got set into RUN
     // state.
+    DPF_EXIT(("[CMiniportWaveRTStream::GetPositions]"));
     // Once the stream is set to STOP state, any further read on this call would return zero.
 
     //
@@ -911,6 +953,7 @@ NTSTATUS CMiniportWaveRTStream::GetPositions(
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
 Done:
 #endif // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
+    DPF_EXIT(("[CMiniportWaveRTStream::GetPositions]"));
     return ntStatus;
 }
 
@@ -948,6 +991,7 @@ NTSTATUS CMiniportWaveRTStream::SetLoopbackProtection(_In_ CONSTRICTOR_OPTION pr
     // 
     m_ToneGenerator.SetMute(protectionOption == CONSTRICTOR_OPTION_MUTE);
     
+    DPF_EXIT(("[CMiniportWaveRTStream::SetLoopbackProtection]"));
     return STATUS_SUCCESS;
 }
 
@@ -997,6 +1041,7 @@ NTSTATUS CMiniportWaveRTStream::SetStreamCurrentWritePositionForLastBuffer(_In_ 
 
     KeReleaseSpinLock(&m_PositionSpinLock, oldIrql);
 
+    DPF_EXIT(("[CMiniportWaveRT::SetStreamCurrentWritePositionForLastBuffer]"));
     return ntStatus;
 }
 

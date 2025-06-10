@@ -104,6 +104,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandler_SpeakerHpJackDescription]"));
     return ntStatus;
 }
 
@@ -196,6 +197,7 @@ Return Value:
                         // a client application can call IKsJackDescription2::GetJackDescription2 to read 
                         // the JackCapabilities flag of the KSJACK_DESCRIPTION2 structure. If this flag has
                         // the JACKDESC2_PRESENCE_DETECT_CAPABILITY bit set, it indicates that the endpoint 
+                        DPF_EXIT(("[PropertyHandler_SpeakerHpJackDescription2]"));
                         // does in fact support jack presence detection. In that case, the return value of 
                         // the IsConnected member can be interpreted to accurately reflect the insertion status
                         // of the jack."
@@ -213,6 +215,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandler_SpeakerHpJackDescription2]"));
     return ntStatus;
 }
 
@@ -270,6 +273,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandler_SpeakerHpTopoFilter]"));
     return ntStatus;
 } // PropertyHandler_SpeakerHpTopoFilter
 

@@ -659,6 +659,7 @@ Return Value:
 #ifdef SYSVAD_USB_SIDEBAND
     ASSERT(IsListEmpty(&m_PowerRelations));
 #endif // SYSVAD_USB_SIDEBAND
+DPF_EXIT(("[CAdapterCommon::~CAdapterCommon]"));
 } // ~CAdapterCommon  
 
 //=============================================================================
@@ -844,6 +845,7 @@ Return Value:
     CSaveData::SetDeviceObject(DeviceObject);   //device object is needed by CSaveData
 Done:
 
+    DPF_EXIT(("[CAdapterCommon::Init]"));
     return ntStatus;
 } // Init
 
@@ -1064,6 +1066,7 @@ Return Value:
     {
         m_pServiceGroupWave->AddRef();
     }
+DPF_EXIT(("[CAdapterCommon::SetWaveServiceGroup]"));
 } // SetWaveServiceGroup
 
 //=============================================================================
@@ -1559,6 +1562,7 @@ Note:
         }
     }
 	DPF(D_TERSE,("Entering %x", NewState.DeviceState));
+DPF_EXIT(("[CAdapterCommon::PowerChangeState]"));
 } // PowerStateChange
 
 //=============================================================================
@@ -1590,6 +1594,7 @@ Return Value:
 
     DPF_ENTER(("[CAdapterCommon::QueryDeviceCapabilities]"));
 
+    DPF_EXIT(("[CAdapterCommon::QueryDeviceCapabilities]"));
     return (STATUS_SUCCESS);
 } // QueryDeviceCapabilities
 
@@ -1633,6 +1638,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::QueryPowerChangeState]"));
     return status;
 } // QueryPowerChangeState
 
@@ -1717,6 +1723,7 @@ Done:
         RtlFreeUnicodeString(AudioSymbolicLinkName);
         RtlZeroMemory(AudioSymbolicLinkName, sizeof(UNICODE_STRING));
     }
+    DPF_EXIT(("[CAdapterCommon::CreateAudioInterfaceWithProperties]"));
     return ntStatus;
 }
 
@@ -1920,6 +1927,7 @@ Return Value:
         miniport->Release();
     }
 
+    DPF_EXIT(("[InstallSubDevice %S]", Name));
     return ntStatus;
 } // InstallSubDevice
 
@@ -1956,6 +1964,7 @@ Return Value:
     
     if (NULL == UnknownPort)
     {
+        DPF_EXIT(("[CAdapterCommon::UnregisterSubdevice]"));
         return ntStatus;
     }
 
@@ -1981,6 +1990,7 @@ Return Value:
         unregisterSubdevice->Release();
     }
     
+    DPF_EXIT(("[CAdapterCommon::UnregisterSubdevice]"));
     return ntStatus;
 }
 
@@ -2068,6 +2078,7 @@ Return Value:
         DisconnectTopologies(UnknownTopology, UnknownWave, PhysicalConnections, PhysicalConnectionCount);
     }
 
+    DPF_EXIT(("[CAdapterCommon::ConnectTopologies]"));
     return ntStatus;
 }
 
@@ -2148,6 +2159,7 @@ Return Value:
                     break;
             }
 
+            DPF_EXIT(("[CAdapterCommon::DisconnectTopologies]"));
             // cache and return the first error encountered, as it's likely the most relevent
             if (NT_SUCCESS(ntStatus))
             {
@@ -2161,6 +2173,7 @@ Return Value:
     //
     SAFE_RELEASE(unregisterPhysicalConnection);
 
+    DPF_EXIT(("[CAdapterCommon::DisconnectTopologies]"));
     return ntStatus;
 }
 
@@ -2177,6 +2190,7 @@ CAdapterCommon::GetCachedSubdevice
     PAGED_CODE();
     DPF_ENTER(("[CAdapterCommon::GetCachedSubdevice]"));
 
+    DPF_EXIT(("[CAdapterCommon::GetCachedSubdevice]"));
     // search list, return interface to device if found, fail if not found
     PLIST_ENTRY le = NULL;
     BOOL bFound = FALSE;
@@ -2203,6 +2217,7 @@ CAdapterCommon::GetCachedSubdevice
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::GetCachedSubdevice]"));
     return bFound?STATUS_SUCCESS:STATUS_OBJECT_NAME_NOT_FOUND;
 }
 
@@ -2265,6 +2280,7 @@ CAdapterCommon::CacheSubdevice
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::CacheSubdevice]"));
     return ntStatus;
 }
 
@@ -2302,6 +2318,7 @@ CAdapterCommon::RemoveCachedSubdevice
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::RemoveCachedSubdevice]"));
     return bRemoved?STATUS_SUCCESS:STATUS_OBJECT_NAME_NOT_FOUND;
 }
 
@@ -2449,6 +2466,7 @@ CAdapterCommon::UpdatePowerRelations(_In_ PIRP Irp)
 #pragma prefast(suppress: __WARNING_BUFFER_OVERFLOW, "the access to newRelation->Objects is in-range")
         newRelations->Objects[newRelations->Count] = powerDepDo->Pdo;
 
+        DPF_EXIT(("[CAdapterCommon::Cleanup]"));
         // Add a reference on the PDO before returning it as a dependency.
         // PnP will remove the reference when appropriate as per msdn.
         // https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mn-query-device-relations#operation
@@ -2491,6 +2509,7 @@ Exit:
     Irp->IoStatus.Status = status;
     Irp->IoStatus.Information = (ULONG_PTR)newRelations;
 
+    DPF_EXIT(("[CAdapterCommon::Cleanup]"));
     return status;
 }
 #endif // SYSVAD_USB_SIDEBAND
@@ -2663,6 +2682,7 @@ CAdapterCommon::InstallEndpointFilters
     SAFE_RELEASE(unknownMiniWave);
     SAFE_RELEASE(unknownWave);
 
+    DPF_EXIT(("[CAdapterCommon::InstallEndpointFilters]"));
     return ntStatus;
 }
 
@@ -2717,6 +2737,7 @@ CAdapterCommon::RemoveEndpointFilters
     //
     ntStatus = STATUS_SUCCESS;
     
+    DPF_EXIT(("[CAdapterCommon::RemoveEndpointFilters]"));
     return ntStatus;
 }
 
@@ -2741,6 +2762,7 @@ CAdapterCommon::GetFilters
     PUNKNOWN            unknownWavePort         = NULL;
     PUNKNOWN            unknownWaveMiniport     = NULL;
 
+    DPF_EXIT(("[CAdapterCommon::GetFilters]"));
     // if the client requested the topology filter, find it and return it
     if (UnknownTopologyPort != NULL || UnknownTopologyMiniport != NULL)
     {
@@ -2759,6 +2781,7 @@ CAdapterCommon::GetFilters
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::GetFilters]"));
     // if the client requested the wave filter, find it and return it
     if (NT_SUCCESS(ntStatus) && (UnknownWavePort != NULL || UnknownWaveMiniport != NULL))
     {
@@ -2777,6 +2800,7 @@ CAdapterCommon::GetFilters
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::GetFilters]"));
     return ntStatus;
 }
 
@@ -2837,6 +2861,7 @@ CAdapterCommon::SetIdlePowerManagement
     SAFE_RELEASE(pUnknown);
     SAFE_RELEASE(pPortClsPower);
 
+    DPF_EXIT(("[CAdapterCommon::SetIdlePowerManagement]"));
     return ntStatus;
 }
 
@@ -2871,6 +2896,7 @@ Arguments:
     
     if (WorkItem == NULL) 
     {
+        DPF_EXIT(("[EvtBthHfpScoBypassInterfaceWorkItem]"));
         return;
     }
 
@@ -2984,6 +3010,7 @@ Return Value:
     
     ExReleaseFastMutex(&m_BthHfpFastMutex);
 
+    DPF_EXIT(("[CAdapterCommon::BthHfpDeviceFind]"));
     return bthDevice;
 }
 
@@ -3107,6 +3134,7 @@ Done:
         }
     }
     
+    DPF_EXIT(("[CAdapterCommon::BthHfpScoInterfaceArrival]"));
     return ntStatus;
 }
 
@@ -3207,6 +3235,7 @@ Done:
         SAFE_RELEASE(bthDevice);
     }
     
+    DPF_EXIT(("[CAdapterCommon::BthHfpScoInterfaceRemoval]"));
     return ntStatus;
 }
 
@@ -3279,6 +3308,7 @@ Return Value:
     }
 
 Done:
+    DPF_EXIT(("[EvtBthHfpScoBypassInterfaceChange]"));
     return ntStatus;
 }
 
@@ -3371,6 +3401,7 @@ Return Value:
     ntStatus = STATUS_SUCCESS;
 
 Done:
+    DPF_EXIT(("[CAdapterCommon::InitBluetoothBypass]"));
     return ntStatus;
 }
 
@@ -3394,6 +3425,7 @@ Routine Description:
     //
     if (m_BthHfpEnableCleanup == FALSE)
     {
+        DPF_EXIT(("[CAdapterCommon::CleanupBthScoBypass]"));
         return;
     }
     
@@ -3479,6 +3511,7 @@ WorkItem    - WDF work-item object.
 
     if (WorkItem == NULL)
     {
+        DPF_EXIT(("[EvtUsbSidebandInterfaceWorkItem]"));
         return;
     }
 
@@ -3592,6 +3625,7 @@ UsbSidebandDevice pointer or NULL.
 
     ExReleaseFastMutex(&m_UsbSidebandFastMutex);
 
+    DPF_EXIT(("[CAdapterCommon::UsbSidebandDeviceFind]"));
     return usbDevice;
 }
 
@@ -3715,6 +3749,7 @@ Done:
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::UsbSidebandInterfaceArrival]"));
     return ntStatus;
 }
 
@@ -3815,6 +3850,7 @@ Done:
         SAFE_RELEASE(usbHsDevice);
     }
 
+    DPF_EXIT(("[CAdapterCommon::UsbSidebandInterfaceRemoval]"));
     return ntStatus;
 }
 
@@ -3887,6 +3923,7 @@ NT status code.
     }
 
 Done:
+    DPF_EXIT(("[EvtUsbSidebandInterfaceChange]"));
     return ntStatus;
 }
 
@@ -3979,6 +4016,7 @@ NT status code.
     ntStatus = STATUS_SUCCESS;
 
 Done:
+    DPF_EXIT(("[CAdapterCommon::InitUsbSideband]"));
     return ntStatus;
 }
 
@@ -4015,6 +4053,7 @@ CAdapterCommon::AddDeviceAsPowerDependency
     IoInvalidateDeviceRelations(m_pPhysicalDeviceObject, PowerRelations);
 
 exit:
+    DPF_EXIT(("[CAdapterCommon::InitUsbSideband]"));
     return status;
 }
 
@@ -4049,6 +4088,7 @@ CAdapterCommon::RemoveDeviceAsPowerDependency
 
     IoInvalidateDeviceRelations(m_pPhysicalDeviceObject, PowerRelations);
 
+    DPF_EXIT(("[CAdapterCommon::InitUsbSideband]"));
     return status;
 }
 
@@ -4072,6 +4112,7 @@ Cleanup the USB Sideband environment.
     //
     if (m_UsbSidebandEnableCleanup == FALSE)
     {
+        DPF_EXIT(("[CAdapterCommon::CleanupUsbSideband]"));
         return;
     }
 
@@ -4157,6 +4198,7 @@ WorkItem    - WDF work-item object.
 
     if (WorkItem == NULL)
     {
+        DPF_EXIT(("[EvtA2dpSidebandInterfaceWorkItem]"));
         return;
     }
 
@@ -4270,6 +4312,7 @@ A2dpSidebandDevice pointer or NULL.
 
     ExReleaseFastMutex(&m_A2dpSidebandFastMutex);
 
+    DPF_EXIT(("[CAdapterCommon::A2dpSidebandDeviceFind]"));
     return a2dpDevice;
 }
 
@@ -4393,6 +4436,7 @@ Done:
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::A2dpSidebandInterfaceArrival]"));
     return ntStatus;
 }
 
@@ -4493,6 +4537,7 @@ Done:
         SAFE_RELEASE(a2dpHpDevice);
     }
 
+    DPF_EXIT(("[CAdapterCommon::A2dpSidebandInterfaceRemoval]"));
     return ntStatus;
 }
 
@@ -4565,6 +4610,7 @@ NT status code.
     }
 
 Done:
+    DPF_EXIT(("[EvtA2dpSidebandInterfaceChange]"));
     return ntStatus;
 }
 
@@ -4680,6 +4726,7 @@ NT status code.
 
 Done:
     RtlFreeUnicodeString(&sidebandSupportRefString);
+    DPF_EXIT(("[CAdapterCommon::InitA2dpSideband]"));
     return ntStatus;
 }
 
@@ -4703,6 +4750,7 @@ Cleanup the A2DP Sideband environment.
     //
     if (m_A2dpSidebandEnableCleanup == FALSE)
     {
+        DPF_EXIT(("[CAdapterCommon::CleanupA2dpSideband]"));
         return;
     }
 
@@ -4852,6 +4900,7 @@ Exit:
         ExFreePoolWithTag(kvFullInfo, MINADAPTER_POOLTAG);
     }
 
+    DPF_EXIT(("[CAdapterCommon::CleanupA2dpSideband]"));
     return ntStatus;
 }
 
@@ -4991,6 +5040,7 @@ Exit:
     {
         ExFreePoolWithTag(kBasicInfo, MINADAPTER_POOLTAG);
     }
+    DPF_EXIT(("[CAdapterCommon::CleanupA2dpSideband]"));
     return ntStatus;
 }
 
@@ -5044,6 +5094,7 @@ Return Value:
 
     //
     // Register an audio interface if not already present for the template interface, so we can access
+    DPF_EXIT(("[CAdapterCommon::CleanupA2dpSideband]"));
     // the registry path. If it's already registered, this simply returns the symbolic link name. 
     // No need to unregister it (there is no mechanism to), and we'll never make it active.
     //
@@ -5078,6 +5129,7 @@ Exit:
         ZwClose(hDeviceInterfaceParametersKey);
     }
 
+    DPF_EXIT(("[CAdapterCommon::CleanupA2dpSideband]"));
     return ntStatus;
 }
 
@@ -5118,6 +5170,7 @@ CAdapterCommon::NotifyEndpointPair
         }
     }
 
+    DPF_EXIT(("[CAdapterCommon::CleanupA2dpSideband]"));
     return ntStatus;
 }
 

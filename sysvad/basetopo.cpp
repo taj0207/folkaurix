@@ -56,6 +56,7 @@ Return Value:
     
     ASSERT(DeviceMaxChannels > 0);
     m_DeviceMaxChannels = DeviceMaxChannels;
+DPF_EXIT(("[%s]",__FUNCTION__));
 } // CMiniportTopologySYSVAD
 
 CMiniportTopologySYSVAD::~CMiniportTopologySYSVAD
@@ -82,6 +83,7 @@ Return Value:
 
     SAFE_RELEASE(m_AdapterCommon);
     SAFE_RELEASE(m_PortEvents);
+DPF_EXIT(("[%s]",__FUNCTION__));
 } // ~CMiniportTopologySYSVAD
 
 //=============================================================================
@@ -141,6 +143,7 @@ Return Value:
 
     DPF_ENTER(("[%s]",__FUNCTION__));
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return (STATUS_NOT_IMPLEMENTED);
 } // DataRangeIntersection
 
@@ -178,6 +181,7 @@ Return Value:
 
     *OutFilterDescriptor = m_FilterDescriptor;
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return (STATUS_SUCCESS);
 } // GetDescription
 
@@ -243,6 +247,7 @@ Return Value:
         SAFE_RELEASE(m_PortEvents);
     }
 
+    DPF_EXIT(("[CMiniportTopologySYSVAD::Init]"));
     return ntStatus;
 } // Init
 
@@ -383,6 +388,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return ntStatus;
 } // PropertyHandlerMuxSource
 
@@ -451,6 +457,7 @@ Return Value:
                 } 
                 else if (PropertyRequest->ValueSize >= sizeof(KSPROPERTY_DESCRIPTION))
                 {
+                    DPF_EXIT(("[%s]",__FUNCTION__));
                     // if return buffer can hold a KSPROPERTY_DESCRIPTION, return it
                     //
                     PKSPROPERTY_DESCRIPTION PropDesc = PKSPROPERTY_DESCRIPTION(PropertyRequest->Value);
@@ -465,6 +472,7 @@ Return Value:
 
                     if ( PropertyRequest->ValueSize >= ExpectedSize )
                     {
+                        DPF_EXIT(("[%s]",__FUNCTION__));
                         // Extra information to return
                         PropDesc->MembersListCount  = 1;
 
@@ -486,11 +494,13 @@ Return Value:
                             PeakMeterBounds->UnsignedMaximum = 0xffffffff;
                         }
 
+                        DPF_EXIT(("[%s]",__FUNCTION__));
                         // set the return value size
                         PropertyRequest->ValueSize = ExpectedSize;
                     }
                     else
                     {
+                        DPF_EXIT(("[%s]",__FUNCTION__));
                         // No extra information to return.
                         PropertyRequest->ValueSize = sizeof(KSPROPERTY_DESCRIPTION);
                     }
@@ -499,6 +509,7 @@ Return Value:
                 } 
                 else if (PropertyRequest->ValueSize >= sizeof(ULONG))
                 {
+                    DPF_EXIT(("[%s]",__FUNCTION__));
                     // if return buffer can hold a ULONG, return the access flags
                     //
                     *(PULONG(PropertyRequest->Value)) = KSPROPERTY_TYPE_ALL;
@@ -609,6 +620,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return ntStatus;
 } // PropertyHandlerDevSpecific
 

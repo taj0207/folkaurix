@@ -655,6 +655,7 @@ Return Value:
             );
     }
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return ntStatus;
 } // PropertyHandlerCpuResources
 
@@ -762,6 +763,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return ntStatus;
 } // PropertyHandlerVolume
 
@@ -869,6 +871,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return ntStatus;
 } // PropertyHandlerMute
 
@@ -954,6 +957,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[%s]",__FUNCTION__));
     return ntStatus;
 } // PropertyHandlerVolume
 
