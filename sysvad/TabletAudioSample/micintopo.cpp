@@ -49,7 +49,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandler_MicInJackDescription]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS                ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG                   nPinId = (ULONG)-1;
@@ -104,7 +104,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[PropertyHandler_MicInJackDescription]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 }
 
@@ -134,7 +134,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandler_MicInJackDescription2]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS                ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG                   nPinId = (ULONG)-1;
@@ -197,7 +197,7 @@ Return Value:
                         // a client application can call IKsJackDescription2::GetJackDescription2 to read 
                         // the JackCapabilities flag of the KSJACK_DESCRIPTION2 structure. If this flag has
                         // the JACKDESC2_PRESENCE_DETECT_CAPABILITY bit set, it indicates that the endpoint 
-                        DPF_EXIT(("[PropertyHandler_MicInJackDescription2]"));
+                        DPF_EXIT(("[%s]", __FUNCTION__));
                         // does in fact support jack presence detection. In that case, the return value of 
                         // the IsConnected member can be interpreted to accurately reflect the insertion status
                         // of the jack."
@@ -215,7 +215,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[PropertyHandler_MicInJackDescription2]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 }
 
@@ -245,7 +245,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandler_MicInTopoFilter]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     // PropertryRequest structure is filled by portcls. 
     // MajorTarget is a pointer to miniport object for miniports.
@@ -264,7 +264,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[PropertyHandler_MicInTopoFilter]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 } // PropertyHandler_MicInTopoFilter
 

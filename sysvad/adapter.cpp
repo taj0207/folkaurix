@@ -1067,7 +1067,7 @@ Return Value:
     PUNKNOWN                    pUnknownCommon  = NULL;
     PortClassDeviceContext*     pExtension      = static_cast<PortClassDeviceContext*>(DeviceObject->DeviceExtension);
 
-    DPF_ENTER(("[StartDevice]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     //
     // create a new adapter common object
@@ -1158,7 +1158,7 @@ Exit:
     //
     SAFE_RELEASE(pUnknownCommon);
     
-    DPF_EXIT(("[StartDevice]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 } // StartDevice
 

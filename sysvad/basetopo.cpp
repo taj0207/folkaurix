@@ -216,7 +216,7 @@ Return Value:
     ASSERT(UnknownAdapter_);
     ASSERT(Port_);
 
-    DPF_ENTER(("[CMiniportTopologySYSVAD::Init]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS    ntStatus;
 
@@ -247,7 +247,7 @@ Return Value:
         SAFE_RELEASE(m_PortEvents);
     }
 
-    DPF_EXIT(("[CMiniportTopologySYSVAD::Init]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 } // Init
 
@@ -644,7 +644,7 @@ Arguments:
 --*/
 {
     PAGED_CODE();
-    DPF_ENTER(("[CMiniportTopology::AddEventToEventList]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     ASSERT(m_PortEvents != NULL);
 
@@ -686,7 +686,7 @@ Arguments:
 
 --*/
 {
-    DPF_ENTER(("[CMiniportTopologySYSVAD::GenerateEventList]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     ASSERT(m_PortEvents != NULL);
 
