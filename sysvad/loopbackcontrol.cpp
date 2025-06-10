@@ -44,9 +44,22 @@ static NTSTATUS LoopbackDispatch(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP 
         if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_SYSVAD_GET_LOOPBACK_DATA)
         {
             ULONG outLen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-            PBYTE outBuf = (PBYTE)Irp->AssociatedIrp.SystemBuffer;
-            info = LoopbackBuffer_Read(outBuf, outLen);
-            status = STATUS_SUCCESS;
+            PBYTE outBuf = NULL;
+
+            if (Irp->MdlAddress)
+            {
+                outBuf = (PBYTE)MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
+            }
+
+            if (outBuf)
+            {
+                info = LoopbackBuffer_Read(outBuf, outLen);
+                status = STATUS_SUCCESS;
+            }
+            else
+            {
+                status = STATUS_INSUFFICIENT_RESOURCES;
+            }
         }
         break;
     default:
