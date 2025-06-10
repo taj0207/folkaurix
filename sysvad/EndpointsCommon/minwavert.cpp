@@ -1021,10 +1021,10 @@ VOID CMiniportWaveRT::ReleaseFormatsAndModesLock()
 //
 #pragma code_seg()
 _Use_decl_annotations_
-DPF_EXIT(("[%s]", __FUNCTION__));
 ULONG CMiniportWaveRT::GetPinSupportedDeviceFormats(_In_ ULONG PinId, _Outptr_opt_result_buffer_(return) KSDATAFORMAT_WAVEFORMATEXTENSIBLE **ppFormats)
 {
     PPIN_DEVICE_FORMATS_AND_MODES pDeviceFormatsAndModes = NULL;
+    DPF_EXIT(("[%s]", __FUNCTION__));
 
     AcquireFormatsAndModesLock();
 
@@ -1059,9 +1059,9 @@ ULONG CMiniportWaveRT::GetPinSupportedDeviceFormats(_In_ ULONG PinId, _Outptr_op
 //
 #pragma code_seg()
 _Use_decl_annotations_
-DPF_EXIT(("[%s]", __FUNCTION__));
 ULONG CMiniportWaveRT::GetAudioEngineSupportedDeviceFormats(_Outptr_opt_result_buffer_(return) KSDATAFORMAT_WAVEFORMATEXTENSIBLE **ppFormats)
 {
+    DPF_EXIT(("[%s]", __FUNCTION__));
     ULONG i;
     PPIN_DEVICE_FORMATS_AND_MODES pDeviceFormatsAndModes = NULL;
 
@@ -1106,9 +1106,9 @@ ULONG CMiniportWaveRT::GetAudioEngineSupportedDeviceFormats(_Outptr_opt_result_b
 //
 #pragma code_seg()
 _Use_decl_annotations_
-DPF_EXIT(("[%s]", __FUNCTION__));
 ULONG CMiniportWaveRT::GetPinSupportedDeviceModes(_In_ ULONG PinId, _Outptr_opt_result_buffer_(return) _On_failure_(_Deref_post_null_) MODE_AND_DEFAULT_FORMAT **ppModes)
 {
+    DPF_EXIT(("[%s]", __FUNCTION__));
     PMODE_AND_DEFAULT_FORMAT modes;
     ULONG numModes;
 
