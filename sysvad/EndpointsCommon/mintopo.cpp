@@ -105,7 +105,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[CMiniportTopology::~CMiniportTopology]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND) || defined (SYSVAD_A2DP_SIDEBAND)
     if (IsSidebandDevice())
@@ -127,7 +127,7 @@ Return Value:
 #endif // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND) || defined(SYSVAD_A2DP_SIDEBAND)
 
 
-DPF_EXIT(("[CMiniportTopology::~CMiniportTopology]"));
+DPF_EXIT(("[%s]", __FUNCTION__));
 } // ~CMiniportTopology
 
 //=============================================================================
@@ -263,7 +263,7 @@ Return Value:
     ASSERT(UnknownAdapter);
     ASSERT(Port_);
 
-    DPF_ENTER(("[CMiniportTopology::Init]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS                    ntStatus;
 
@@ -320,7 +320,7 @@ Return Value:
 #endif  // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND) || defined(SYSVAD_A2DP_SIDEBAND)
 
 Done:
-    DPF_EXIT(("[CMiniportTopology::Init]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 } // Init
 
@@ -412,7 +412,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandlerJackDescription]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    nPinId = (ULONG)-1;
@@ -464,7 +464,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[PropertyHandlerJackDescription]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 }
 
@@ -501,7 +501,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandlerJackDescription2]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    nPinId = (ULONG)-1;
@@ -561,7 +561,7 @@ Return Value:
                         // a client application can call IKsJackDescription2::GetJackDescription2 to read 
                         // the JackCapabilities flag of the KSJACK_DESCRIPTION2 structure. If this flag has
                         // the JACKDESC2_PRESENCE_DETECT_CAPABILITY bit set, it indicates that the endpoint 
-                        DPF_EXIT(("[PropertyHandlerJackDescription2]"));
+                        DPF_EXIT(("[%s]", __FUNCTION__));
                         // does in fact support jack presence detection. In that case, the return value of 
                         // the IsConnected member can be interpreted to accurately reflect the insertion status
                         // of the jack."
@@ -579,7 +579,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[PropertyHandlerJackDescription2]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 }
 
@@ -616,7 +616,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandlerJackDescription3]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    nPinId = (ULONG)-1;
@@ -674,7 +674,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[PropertyHandlerJackDescription3]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 }
 
@@ -705,7 +705,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertryHandlerAudioResourceGroup]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
 
@@ -714,7 +714,7 @@ Return Value:
         status = PropertyHandler_SetAudioResourceGroup(PropertyRequest);
     }
 
-    DPF_EXIT(("[PropertryHandlerAudioResourceGroup]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return status;
 }
 
@@ -728,7 +728,7 @@ CMiniportTopology::PropertyHandler_SetAudioResourceGroup
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandler_SetAudioResourceGroup]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
 
@@ -748,7 +748,7 @@ CMiniportTopology::PropertyHandler_SetAudioResourceGroup
         PAUDIORESOURCEMANAGEMENT_RESOURCEGROUP pResourceGroup = (PAUDIORESOURCEMANAGEMENT_RESOURCEGROUP)PropertyRequest->Value;
 
         // When resource group is released, the resource group should be one that was previously assigned to the endpoint
-        DPF_EXIT(("[PropertyHandler_SetAudioResourceGroup]"));
+        DPF_EXIT(("[%s]", __FUNCTION__));
         // Check the cached resource group, make sure the release resource group and the cached resource group are the same, if not, return failure
         if (!pResourceGroup->ResourceGroupAcquired && (wcscmp(pResourceGroup->ResourceGroupName, m_ResourceGroup.ResourceGroupName) != 0))
         {
@@ -771,7 +771,7 @@ CMiniportTopology::PropertyHandler_SetAudioResourceGroup
         }
     }
 
-    DPF_EXIT(("[PropertyHandler_SetAudioResourceGroup]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return status;
 }
 
@@ -806,7 +806,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandlerAudioPostureOrientation]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    nPinId = (ULONG)-1;
@@ -828,7 +828,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[PropertyHandlerAudioPostureOrientation]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return status;
 }
 
@@ -842,7 +842,7 @@ CMiniportTopology::PropertyHandler_AudioPostureOrientationBasicSupport
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandler_AudioPostureOrientationBasicSupport]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
 
@@ -850,7 +850,7 @@ CMiniportTopology::PropertyHandler_AudioPostureOrientationBasicSupport
 
     if (PropertyRequest->ValueSize >= sizeof(KSPROPERTY_DESCRIPTION))
     {
-        DPF_EXIT(("[PropertyHandler_AudioPostureOrientationBasicSupport]"));
+        DPF_EXIT(("[%s]", __FUNCTION__));
         // if return buffer can hold a KSPROPERTY_DESCRIPTION, return it
         //
         PKSPROPERTY_DESCRIPTION PropDesc = PKSPROPERTY_DESCRIPTION(PropertyRequest->Value);
@@ -872,7 +872,7 @@ CMiniportTopology::PropertyHandler_AudioPostureOrientationBasicSupport
     }
     else if (PropertyRequest->ValueSize >= sizeof(ULONG))
     {
-        DPF_EXIT(("[PropertyHandler_AudioPostureOrientationBasicSupport]"));
+        DPF_EXIT(("[%s]", __FUNCTION__));
         // if return buffer can hold a ULONG, return the access flags.
         *(PULONG(PropertyRequest->Value)) = KSPROPERTY_TYPE_BASICSUPPORT |
                                             KSPROPERTY_TYPE_GET |
@@ -890,7 +890,7 @@ CMiniportTopology::PropertyHandler_AudioPostureOrientationBasicSupport
         status = STATUS_BUFFER_TOO_SMALL;
     }
 
-    DPF_EXIT(("[PropertyHandler_AudioPostureOrientationBasicSupport]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return status;
 }
 
@@ -905,7 +905,7 @@ CMiniportTopology::PropertyHandler_SetAudioPostureOrientation
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandler_SetAudioPostureOrientation]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
 
@@ -943,7 +943,7 @@ CMiniportTopology::PropertyHandler_SetAudioPostureOrientation
         }
     }
 
-    DPF_EXIT(("[PropertyHandler_SetAudioPostureOrientation]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return status;
 }
 
@@ -956,13 +956,13 @@ CMiniportTopology::EvtSpeakerVolumeHandler
     _In_opt_    PVOID   Context
 )
 {
-    DPF_ENTER(("[CMiniportTopologySYSVAD::EvtSpeakerVolumeHandler]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     PCMiniportTopology This = PCMiniportTopology(Context);
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtSpeakerVolumeHandler: context is null")); 
-        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtSpeakerVolumeHandler]"));
+        DPF_EXIT(("[%s]", __FUNCTION__));
         return;
     }
     
@@ -983,13 +983,13 @@ CMiniportTopology::EvtSpeakerConnectionStatusHandler
     _In_opt_    PVOID   Context
 )
 {
-    DPF_ENTER(("[CMiniportTopologySYSVAD::EvtSpeakerConnectionStatusHandler]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     PCMiniportTopology This = PCMiniportTopology(Context);
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtSpeakerConnectionStatusHandler: context is null")); 
-        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtSpeakerConnectionStatusHandler]"));
+        DPF_EXIT(("[%s]", __FUNCTION__));
         return;
     }
     
@@ -1010,13 +1010,13 @@ CMiniportTopology::EvtMicVolumeHandler
     _In_opt_    PVOID   Context
 )
 {
-    DPF_ENTER(("[CMiniportTopologySYSVAD::EvtMicVolumeHandler]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     PCMiniportTopology This = PCMiniportTopology(Context);
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtMicVolumeHandler: context is null")); 
-        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtMicVolumeHandler]"));
+        DPF_EXIT(("[%s]", __FUNCTION__));
         return;
     }
     
@@ -1037,13 +1037,13 @@ CMiniportTopology::EvtMicConnectionStatusHandler
     _In_opt_    PVOID   Context
 )
 {
-    DPF_ENTER(("[CMiniportTopologySYSVAD::EvtMicConnectionStatusHandler]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     PCMiniportTopology This = PCMiniportTopology(Context);
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtMicConnectionStatusHandler: context is null")); 
-        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtMicConnectionStatusHandler]"));
+        DPF_EXIT(("[%s]", __FUNCTION__));
         return;
     }
     
@@ -1084,12 +1084,12 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[PropertyHandler_Topology]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     // PropertryRequest structure is filled by portcls. 
     // MajorTarget is a pointer to miniport object for miniports.
     //
-    DPF_EXIT(("[PropertyHandler_Topology]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return 
         ((PCMiniportTopology)
         (PropertyRequest->MajorTarget))->PropertyHandlerGeneric

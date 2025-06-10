@@ -111,8 +111,8 @@ Return Value:
     ASSERT(m_SidebandStarted == FALSE);
 #endif  // SYSVAD_BTH_BYPASS
 
-    DPF_ENTER(("[CMiniportWaveRTStream::~CMiniportWaveRTStream]"));
-DPF_EXIT(("[CMiniportWaveRTStream::~CMiniportWaveRTStream]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
+DPF_EXIT(("[%s]", __FUNCTION__));
 } // ~CMiniportWaveRTStream
 
 //=============================================================================
@@ -1629,7 +1629,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[CMiniportWaveRT::SetContentId]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS    ntStatus;
     ULONG       ulOldContentId = contentId;
@@ -1688,7 +1688,7 @@ Return Value:
     // For more information, see MSDN's DRM Functions and Interfaces.
     //
 
-    DPF_EXIT(("[CMiniportWaveRT::SetContentId]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 } // SetContentId
 
@@ -1710,7 +1710,7 @@ Return Value:
 
 --*/
 {
-    DPF_ENTER(("[CMiniportWaveRTStream::GetSidebandStreamNtStatus]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
     NTSTATUS  ntStatus  = STATUS_INVALID_DEVICE_STATE;
         
@@ -1728,7 +1728,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[CMiniportWaveRTStream::GetSidebandStreamNtStatus]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;        
 }
 #endif // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
@@ -1748,9 +1748,9 @@ CMiniportWaveRTStream::PropertyHandlerModulesListRequest
 
     PAGED_CODE();
 
-    DPF_ENTER(("[CMiniportWaveRTStream::PropertyHandlerModulesListRequest]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
-    DPF_EXIT(("[CMiniportWaveRTStream::PropertyHandlerModulesListRequest]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return AudioModule_GenericHandler_ModulesListRequest(
                 PropertyRequest,
                 GetAudioModuleList(),
@@ -1767,9 +1767,9 @@ CMiniportWaveRTStream::PropertyHandlerModuleCommand
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[CMiniportWaveRTStream::PropertyHandlerModuleCommand]"));
+    DPF_ENTER(("[%s]", __FUNCTION__));
 
-    DPF_EXIT(("[CMiniportWaveRTStream::PropertyHandlerModuleCommand]"));
+    DPF_EXIT(("[%s]", __FUNCTION__));
     return AudioModule_GenericHandler_ModuleCommand(
                 PropertyRequest,
                 GetAudioModuleList(),
