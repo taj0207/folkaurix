@@ -1419,17 +1419,17 @@ NTSTATUS CMiniportWaveRTStream::SetFormat
     _In_    KSDATAFORMAT    *DataFormat_
 )
 {
-    UNREFERENCED_PARAMETER(DataFormat_);
-
     PAGED_CODE();
 
-    //if (!m_fCapture && !g_DoNotCreateDataFiles)
-    //{
-    //    ntStatus = m_SaveData.SetDataFormat(Format);
-    //}
+    NTSTATUS ntStatus = STATUS_SUCCESS;
+
+    if (!m_fCapture && !g_DoNotCreateDataFiles)
+    {
+        ntStatus = m_SaveData.SetDataFormat(DataFormat_);
+    }
 
     DPF_EXIT(("[%s]", __FUNCTION__));
-    return STATUS_NOT_SUPPORTED;
+    return ntStatus;
 }
 
 #pragma code_seg()
