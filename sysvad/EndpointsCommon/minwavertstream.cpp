@@ -1205,7 +1205,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
                                 m_ulCurrentWritePosition, // replace with the previous WaveRtBufferWritePosition that the driver received
                                 State_, // replace with the correct "Data length completed"
                                 0); // always zero
-    DbgPrint("SetState:(%d)",State_);
+    DbgPrint("SetState:(%d)\n",State_);
     switch (State_)
     {
         case KSSTATE_STOP:
@@ -1423,7 +1423,7 @@ NTSTATUS CMiniportWaveRTStream::SetFormat
 
     NTSTATUS ntStatus = STATUS_SUCCESS;
 
-    if (!m_fCapture && !g_DoNotCreateDataFiles)
+    if (!m_bCapture && !g_DoNotCreateDataFiles)
     {
         ntStatus = m_SaveData.SetDataFormat(DataFormat_);
     }
