@@ -127,6 +127,7 @@ Return Value:
 #endif // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND) || defined(SYSVAD_A2DP_SIDEBAND)
 
 
+DPF_EXIT(("[CMiniportTopology::~CMiniportTopology]"));
 } // ~CMiniportTopology
 
 //=============================================================================
@@ -319,6 +320,7 @@ Return Value:
 #endif  // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND) || defined(SYSVAD_A2DP_SIDEBAND)
 
 Done:
+    DPF_EXIT(("[CMiniportTopology::Init]"));
     return ntStatus;
 } // Init
 
@@ -462,6 +464,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerJackDescription]"));
     return ntStatus;
 }
 
@@ -558,6 +561,7 @@ Return Value:
                         // a client application can call IKsJackDescription2::GetJackDescription2 to read 
                         // the JackCapabilities flag of the KSJACK_DESCRIPTION2 structure. If this flag has
                         // the JACKDESC2_PRESENCE_DETECT_CAPABILITY bit set, it indicates that the endpoint 
+                        DPF_EXIT(("[PropertyHandlerJackDescription2]"));
                         // does in fact support jack presence detection. In that case, the return value of 
                         // the IsConnected member can be interpreted to accurately reflect the insertion status
                         // of the jack."
@@ -575,6 +579,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerJackDescription2]"));
     return ntStatus;
 }
 
@@ -669,6 +674,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerJackDescription3]"));
     return ntStatus;
 }
 
@@ -708,6 +714,7 @@ Return Value:
         status = PropertyHandler_SetAudioResourceGroup(PropertyRequest);
     }
 
+    DPF_EXIT(("[PropertryHandlerAudioResourceGroup]"));
     return status;
 }
 
@@ -741,6 +748,7 @@ CMiniportTopology::PropertyHandler_SetAudioResourceGroup
         PAUDIORESOURCEMANAGEMENT_RESOURCEGROUP pResourceGroup = (PAUDIORESOURCEMANAGEMENT_RESOURCEGROUP)PropertyRequest->Value;
 
         // When resource group is released, the resource group should be one that was previously assigned to the endpoint
+        DPF_EXIT(("[PropertyHandler_SetAudioResourceGroup]"));
         // Check the cached resource group, make sure the release resource group and the cached resource group are the same, if not, return failure
         if (!pResourceGroup->ResourceGroupAcquired && (wcscmp(pResourceGroup->ResourceGroupName, m_ResourceGroup.ResourceGroupName) != 0))
         {
@@ -763,6 +771,7 @@ CMiniportTopology::PropertyHandler_SetAudioResourceGroup
         }
     }
 
+    DPF_EXIT(("[PropertyHandler_SetAudioResourceGroup]"));
     return status;
 }
 
@@ -819,6 +828,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandlerAudioPostureOrientation]"));
     return status;
 }
 
@@ -840,6 +850,7 @@ CMiniportTopology::PropertyHandler_AudioPostureOrientationBasicSupport
 
     if (PropertyRequest->ValueSize >= sizeof(KSPROPERTY_DESCRIPTION))
     {
+        DPF_EXIT(("[PropertyHandler_AudioPostureOrientationBasicSupport]"));
         // if return buffer can hold a KSPROPERTY_DESCRIPTION, return it
         //
         PKSPROPERTY_DESCRIPTION PropDesc = PKSPROPERTY_DESCRIPTION(PropertyRequest->Value);
@@ -861,6 +872,7 @@ CMiniportTopology::PropertyHandler_AudioPostureOrientationBasicSupport
     }
     else if (PropertyRequest->ValueSize >= sizeof(ULONG))
     {
+        DPF_EXIT(("[PropertyHandler_AudioPostureOrientationBasicSupport]"));
         // if return buffer can hold a ULONG, return the access flags.
         *(PULONG(PropertyRequest->Value)) = KSPROPERTY_TYPE_BASICSUPPORT |
                                             KSPROPERTY_TYPE_GET |
@@ -878,6 +890,7 @@ CMiniportTopology::PropertyHandler_AudioPostureOrientationBasicSupport
         status = STATUS_BUFFER_TOO_SMALL;
     }
 
+    DPF_EXIT(("[PropertyHandler_AudioPostureOrientationBasicSupport]"));
     return status;
 }
 
@@ -930,6 +943,7 @@ CMiniportTopology::PropertyHandler_SetAudioPostureOrientation
         }
     }
 
+    DPF_EXIT(("[PropertyHandler_SetAudioPostureOrientation]"));
     return status;
 }
 
@@ -948,6 +962,7 @@ CMiniportTopology::EvtSpeakerVolumeHandler
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtSpeakerVolumeHandler: context is null")); 
+        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtSpeakerVolumeHandler]"));
         return;
     }
     
@@ -974,6 +989,7 @@ CMiniportTopology::EvtSpeakerConnectionStatusHandler
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtSpeakerConnectionStatusHandler: context is null")); 
+        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtSpeakerConnectionStatusHandler]"));
         return;
     }
     
@@ -1000,6 +1016,7 @@ CMiniportTopology::EvtMicVolumeHandler
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtMicVolumeHandler: context is null")); 
+        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtMicVolumeHandler]"));
         return;
     }
     
@@ -1026,6 +1043,7 @@ CMiniportTopology::EvtMicConnectionStatusHandler
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtMicConnectionStatusHandler: context is null")); 
+        DPF_EXIT(("[CMiniportTopologySYSVAD::EvtMicConnectionStatusHandler]"));
         return;
     }
     
@@ -1071,6 +1089,7 @@ Return Value:
     // PropertryRequest structure is filled by portcls. 
     // MajorTarget is a pointer to miniport object for miniports.
     //
+    DPF_EXIT(("[PropertyHandler_Topology]"));
     return 
         ((PCMiniportTopology)
         (PropertyRequest->MajorTarget))->PropertyHandlerGeneric

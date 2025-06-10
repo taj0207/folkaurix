@@ -164,6 +164,7 @@ CSaveData::~CSaveData()
         ExFreePoolWithTag(m_pDataBuffer, SAVEDATA_POOLTAG4);
         m_pDataBuffer = NULL;
     }
+DPF_EXIT(("[CSaveData::~CSaveData]"));
 } // CSaveData
 
 //=============================================================================
@@ -663,6 +664,7 @@ CSaveData::Initialize
         }
     }
 
+    DPF_EXIT(("[CSaveData::Initialize]"));
     return ntStatus;
 } // Initialize
 
@@ -683,6 +685,7 @@ CSaveData::InitializeWorkItems
 
     if (m_pWorkItems != NULL)
     {
+        DPF_EXIT(("[CSaveData::InitializeWorkItems]"));
         return ntStatus;
     }
 
@@ -701,6 +704,7 @@ CSaveData::InitializeWorkItems
             m_pWorkItems[i].WorkItem = IoAllocateWorkItem(DeviceObject);
             if(m_pWorkItems[i].WorkItem == NULL)
             {
+              DPF_EXIT(("[CSaveData::InitializeWorkItems]"));
               return STATUS_INSUFFICIENT_RESOURCES;
             }
             KeInitializeEvent
@@ -716,6 +720,7 @@ CSaveData::InitializeWorkItems
         ntStatus = STATUS_INSUFFICIENT_RESOURCES;
     }
 
+    DPF_EXIT(("[CSaveData::InitializeWorkItems]"));
     return ntStatus;
 } // InitializeWorkItems
 
@@ -838,6 +843,7 @@ CSaveData::SetDataFormat
             ntStatus = STATUS_INSUFFICIENT_RESOURCES;
         }
     }
+    DPF_EXIT(("[CSaveData::SetDataFormat]"));
     return ntStatus;
 } // SetDataFormat
 
@@ -903,6 +909,7 @@ CSaveData::SetMaxWriteSize
     ntStatus = STATUS_SUCCESS;
 
 Done:
+    DPF_EXIT(("[CSaveData::SetMaxWriteSize]"));
     return ntStatus;
 } // SetDataFormat
 
@@ -945,6 +952,7 @@ CSaveData::SaveFrame
         IoQueueWorkItem(pParam->WorkItem, SaveFrameWorkerCallback,
                         CriticalWorkQueue, (PVOID)pParam);
     }
+DPF_EXIT(("[CSaveData::SaveFrame]"));
 } // SaveFrame
 #pragma code_seg("PAGE")
 //=============================================================================
@@ -979,6 +987,7 @@ CSaveData::WaitAllWorkItems
             NULL
         );
     }
+DPF_EXIT(("[CSaveData::WaitAllWorkItems]"));
 } // WaitAllWorkItems
 
 #pragma code_seg()
@@ -1007,6 +1016,7 @@ CSaveData::WriteData
 
     if( 0 == ulByteCount )
     {
+        DPF_EXIT(("[CSaveData::WriteData ulByteCount=%lu]", ulByteCount));
         return;
     }
 

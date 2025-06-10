@@ -104,6 +104,7 @@ Return Value:
         }
     }
 
+    DPF_EXIT(("[PropertyHandler_SpeakerTopoFilter]"));
     return ntStatus;
 } // PropertyHandler_SpeakerTopoFilter
 

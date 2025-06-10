@@ -201,6 +201,7 @@ Return Value:
     }
 #endif // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
 
+DPF_EXIT(("[CMiniportWaveRT::~CMiniportWaveRT]"));
 } // ~CMiniportWaveRT
 
 //=============================================================================
@@ -426,6 +427,7 @@ Return Value:
         m_pAudioModules = (AUDIOMODULE *)ExAllocatePool2(POOL_FLAG_NON_PAGED, size, MINWAVERT_POOLTAG);
         if (m_pAudioModules == NULL)
         {
+            DPF_EXIT(("[CMiniportWaveRT::Init]"));
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
@@ -451,6 +453,7 @@ Return Value:
                 
                 if (m_pAudioModules[i].Context == NULL)
                 {
+                    DPF_EXIT(("[CMiniportWaveRT::Init]"));
                     return STATUS_INSUFFICIENT_RESOURCES;
                 }
             }
@@ -471,6 +474,7 @@ Return Value:
                 if (!NT_SUCCESS(ntStatus))
                 {
                     ASSERT(FALSE);
+                    DPF_EXIT(("[CMiniportWaveRT::Init]"));
                     return ntStatus;
                 }
             }
@@ -484,6 +488,7 @@ Return Value:
     {
         if (m_ulMaxSystemStreams == 0 )
         {
+            DPF_EXIT(("[CMiniportWaveRT::Init]"));
             return STATUS_INVALID_DEVICE_STATE;
         }
             
@@ -492,6 +497,7 @@ Return Value:
         m_SystemStreams = (PCMiniportWaveRTStream *)ExAllocatePool2(POOL_FLAG_NON_PAGED, size, MINWAVERT_POOLTAG);
         if (m_SystemStreams == NULL)
         {
+            DPF_EXIT(("[CMiniportWaveRT::Init]"));
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
@@ -499,6 +505,7 @@ Return Value:
         {
             if (m_ulMaxLoopbackStreams == 0)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INVALID_DEVICE_STATE;
             }
 
@@ -507,6 +514,7 @@ Return Value:
             m_LoopbackStreams = (PCMiniportWaveRTStream *)ExAllocatePool2(POOL_FLAG_NON_PAGED, size, MINWAVERT_POOLTAG);
             if (m_LoopbackStreams == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
         }
@@ -518,6 +526,7 @@ Return Value:
 
             if (m_ulMaxOffloadStreams == 0)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INVALID_DEVICE_STATE;
             }
             
@@ -526,6 +535,7 @@ Return Value:
             m_OffloadStreams = (PCMiniportWaveRTStream *)ExAllocatePool2(POOL_FLAG_NON_PAGED, size, MINWAVERT_POOLTAG);
             if (m_OffloadStreams == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
 
@@ -533,6 +543,7 @@ Return Value:
             m_pDeviceFormat = (PKSDATAFORMAT_WAVEFORMATEXTENSIBLE)ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE), MINWAVERT_POOLTAG);
             if (m_pDeviceFormat == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
 
@@ -540,6 +551,7 @@ Return Value:
 
             if (numDeviceFormats < 1)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_UNSUCCESSFUL;
             }
             RtlCopyMemory((PVOID)(m_pDeviceFormat), (PVOID)(pDeviceFormats), sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE));
@@ -547,6 +559,7 @@ Return Value:
             m_pMixFormat = (PKSDATAFORMAT_WAVEFORMATEXTENSIBLE)ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE), MINWAVERT_POOLTAG);
             if (m_pMixFormat == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
             m_pMixFormat->DataFormat.FormatSize = sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE);
@@ -572,18 +585,21 @@ Return Value:
             m_pbMuted = (PBOOL)ExAllocatePool2(POOL_FLAG_NON_PAGED, m_DeviceMaxChannels * sizeof(BOOL), MINWAVERT_POOLTAG);
             if (m_pbMuted == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
 
             m_plVolumeLevel = (PLONG)ExAllocatePool2(POOL_FLAG_NON_PAGED, m_DeviceMaxChannels * sizeof(LONG), MINWAVERT_POOLTAG);
             if (m_plVolumeLevel == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
 
             m_plPeakMeter = (PLONG)ExAllocatePool2(POOL_FLAG_NON_PAGED, m_DeviceMaxChannels * sizeof(LONG), MINWAVERT_POOLTAG);
             if (m_plPeakMeter == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::Init]"));
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
         }
@@ -624,6 +640,7 @@ Return Value:
     }
 #endif  // #ifdef SYSVAD_BTH_BYPASS
 
+    DPF_EXIT(("[CMiniportWaveRT::Init]"));
     return ntStatus;
 } // Init
 
@@ -747,6 +764,7 @@ Return Value:
         stream->Release();
     }
     
+    DPF_EXIT(("[CMiniportWaveRT::NewStream]"));
     return ntStatus;
 } // NewStream
 
@@ -842,6 +860,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetDeviceDescription(_Out_ PDEVICE_DESC
     DmaDeviceDescription->InterfaceType = PCIBus;
     DmaDeviceDescription->MaximumLength = 0xFFFFFFFF;
 
+    DPF_EXIT(("[CMiniportWaveRT::GetDeviceDescription]"));
     return STATUS_SUCCESS;
 }
 
@@ -857,12 +876,15 @@ CMiniportWaveRT::GetModes
 /*
 
 1.	If Pin is not a valid pin number, 
+        DPF_EXIT(("[CMiniportWaveRT::GetDeviceDescription]"));
         return STATUS_INVALID_PARAMETER.
         
 2.	If Pin is a valid pin number and it supports n modes (n>0), 
+        DPF_EXIT(("[CMiniportWaveRT::GetDeviceDescription]"));
         init out-parameters and return STATUS_SUCCESS.
     
 3.  Else this pin doesn't support any mode,
+        DPF_EXIT(("[CMiniportWaveRT::GetDeviceDescription]"));
         return STATUS_NOT_SUPPORTED. 
         example: bridge pins or another mode-not-aware pins.
 
@@ -878,6 +900,7 @@ CMiniportWaveRT::GetModes
 
     if (Pin >= m_pMiniportPair->WaveDescriptor->PinCount)
     {
+        DPF_EXIT(("[CMiniportWaveRT::GetModes]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -893,9 +916,11 @@ CMiniportWaveRT::GetModes
     numModes = GetPinSupportedDeviceModes(Pin, &modeInfo);
     if (numModes == 0)
     {
+        DPF_EXIT(("[CMiniportWaveRT::GetModes]"));
         return STATUS_NOT_SUPPORTED;
     }
    
+    DPF_EXIT(("[CMiniportWaveRT::GetModes]"));
     // If caller requests the modes, verify sufficient buffer size then return the modes
     if (SignalProcessingModes != NULL)
     {
@@ -917,6 +942,7 @@ CMiniportWaveRT::GetModes
     ntStatus = STATUS_SUCCESS;
 
 Done:   
+    DPF_EXIT(("[CMiniportWaveRT::GetModes]"));
     return ntStatus;
 }
 
@@ -962,6 +988,7 @@ CMiniportWaveRT::ValidateStreamCreate
         }
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return ntStatus;
 }
 
@@ -994,6 +1021,7 @@ VOID CMiniportWaveRT::ReleaseFormatsAndModesLock()
 //
 #pragma code_seg()
 _Use_decl_annotations_
+DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
 ULONG CMiniportWaveRT::GetPinSupportedDeviceFormats(_In_ ULONG PinId, _Outptr_opt_result_buffer_(return) KSDATAFORMAT_WAVEFORMATEXTENSIBLE **ppFormats)
 {
     PPIN_DEVICE_FORMATS_AND_MODES pDeviceFormatsAndModes = NULL;
@@ -1012,6 +1040,7 @@ ULONG CMiniportWaveRT::GetPinSupportedDeviceFormats(_In_ ULONG PinId, _Outptr_op
 
     ReleaseFormatsAndModesLock();
 
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return pDeviceFormatsAndModes[PinId].WaveFormatsCount;
 }
 
@@ -1030,6 +1059,7 @@ ULONG CMiniportWaveRT::GetPinSupportedDeviceFormats(_In_ ULONG PinId, _Outptr_op
 //
 #pragma code_seg()
 _Use_decl_annotations_
+DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
 ULONG CMiniportWaveRT::GetAudioEngineSupportedDeviceFormats(_Outptr_opt_result_buffer_(return) KSDATAFORMAT_WAVEFORMATEXTENSIBLE **ppFormats)
 {
     ULONG i;
@@ -1058,6 +1088,7 @@ ULONG CMiniportWaveRT::GetAudioEngineSupportedDeviceFormats(_Outptr_opt_result_b
     }
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return pDeviceFormatsAndModes[i].WaveFormatsCount;
 }
 
@@ -1075,6 +1106,7 @@ ULONG CMiniportWaveRT::GetAudioEngineSupportedDeviceFormats(_Outptr_opt_result_b
 //
 #pragma code_seg()
 _Use_decl_annotations_
+DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
 ULONG CMiniportWaveRT::GetPinSupportedDeviceModes(_In_ ULONG PinId, _Outptr_opt_result_buffer_(return) _On_failure_(_Deref_post_null_) MODE_AND_DEFAULT_FORMAT **ppModes)
 {
     PMODE_AND_DEFAULT_FORMAT modes;
@@ -1114,6 +1146,7 @@ ULONG CMiniportWaveRT::GetPinSupportedDeviceModes(_In_ ULONG PinId, _Outptr_opt_
         }
         else
         {
+            DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
             // ensure that the returned pointer is NULL
             // in the event of failure (SAL annotation above
             // indicates that it must be NULL, and OACR sees a possibility
@@ -1123,6 +1156,7 @@ ULONG CMiniportWaveRT::GetPinSupportedDeviceModes(_In_ ULONG PinId, _Outptr_opt_
     }
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return numModes;
 }
 
@@ -1134,6 +1168,7 @@ BOOL CMiniportWaveRT::IsSystemCapturePin(ULONG nPinId)
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return (pinType == SystemCapturePin);
 }
 
@@ -1145,6 +1180,7 @@ BOOL CMiniportWaveRT::IsCellularBiDiCapturePin(ULONG nPinId)
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return (pinType == TelephonyBidiPin);
 }
 
@@ -1156,6 +1192,7 @@ BOOL CMiniportWaveRT::IsSystemRenderPin(ULONG nPinId)
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return (pinType == SystemRenderPin);
 }
 
@@ -1167,6 +1204,7 @@ BOOL CMiniportWaveRT::IsLoopbackPin(ULONG nPinId)
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return (pinType == RenderLoopbackPin);
 }
 
@@ -1178,6 +1216,7 @@ BOOL CMiniportWaveRT::IsOffloadPin(ULONG nPinId)
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return (pinType == OffloadRenderPin);
 }
 
@@ -1189,6 +1228,7 @@ BOOL CMiniportWaveRT::IsBridgePin(ULONG nPinId)
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return (pinType == BridgePin);
 }
 
@@ -1200,6 +1240,7 @@ BOOL CMiniportWaveRT::IsKeywordDetectorPin(ULONG nPinId)
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
 
     ReleaseFormatsAndModesLock();
+    DPF_EXIT(("[CMiniportWaveRT::ValidateStreamCreate]"));
     return (pinType == KeywordCapturePin);
 }
 
@@ -1223,11 +1264,13 @@ CMiniportWaveRT::StreamCreated
     if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
     {
         ALLOCATE_PIN_INSTANCE_RESOURCES(m_ulSystemAllocated);
+        DPF_EXIT(("[CMiniportWaveRT::StreamCreated]"));
         return STATUS_SUCCESS;
     }
     if (IsKeywordDetectorPin(_Pin))
     {
         ALLOCATE_PIN_INSTANCE_RESOURCES(m_ulKeywordDetectorAllocated);
+        DPF_EXIT(("[CMiniportWaveRT::StreamCreated]"));
         return STATUS_SUCCESS;
     }
     else if (IsLoopbackPin(_Pin))
@@ -1267,6 +1310,7 @@ CMiniportWaveRT::StreamCreated
         ASSERT(i != count);
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::StreamCreated]"));
     return STATUS_SUCCESS;
 }
 
@@ -1290,11 +1334,13 @@ CMiniportWaveRT::StreamClosed
     if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
     {
         FREE_PIN_INSTANCE_RESOURCES(m_ulSystemAllocated);
+        DPF_EXIT(("[CMiniportWaveRT::StreamClosed]"));
         return STATUS_SUCCESS;
     }
     if (IsKeywordDetectorPin(_Pin))
     {
         FREE_PIN_INSTANCE_RESOURCES(m_ulKeywordDetectorAllocated);
+        DPF_EXIT(("[CMiniportWaveRT::StreamClosed]"));
         return STATUS_SUCCESS;
     }
     else if (IsLoopbackPin(_Pin))
@@ -1343,6 +1389,7 @@ CMiniportWaveRT::StreamClosed
         UpdateDrmRights();
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::StreamClosed]"));
     return STATUS_SUCCESS;
 }
 
@@ -1359,6 +1406,7 @@ CMiniportWaveRT::GetAttributesFromAttributeList
 
 Routine Description:
 
+  DPF_EXIT(("[CMiniportWaveRT::StreamClosed]"));
   Processes attributes list and return known attributes.
 
 Arguments:
@@ -1368,6 +1416,7 @@ Arguments:
   _Size - count of bytes in the buffer pointed to by _pAttributes. The routine
     verifies sufficient buffer size while processing the attributes.
 
+  DPF_EXIT(("[CMiniportWaveRT::StreamClosed]"));
   _pSignalProcessingMode - returns the signal processing mode extracted from
     the attribute list, or AUDIO_SIGNALPROCESSINGMODE_DEFAULT if the attribute
     is not present in the list.
@@ -1394,6 +1443,7 @@ Remarks
 
     if (cbRemaining < sizeof(KSMULTIPLE_ITEM))
     {
+        DPF_EXIT(("[CMiniportWaveRT::GetAttributesFromAttributeList]"));
         return STATUS_INVALID_PARAMETER;
     }
     cbRemaining -= sizeof(KSMULTIPLE_ITEM);
@@ -1407,6 +1457,7 @@ Remarks
     {
         if (cbRemaining < sizeof(KSATTRIBUTE))
         {
+            DPF_EXIT(("[CMiniportWaveRT::GetAttributesFromAttributeList]"));
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -1416,11 +1467,13 @@ Remarks
 
             if (cbRemaining < sizeof(KSATTRIBUTE_AUDIOSIGNALPROCESSING_MODE))
             {
+                DPF_EXIT(("[CMiniportWaveRT::GetAttributesFromAttributeList]"));
                 return STATUS_INVALID_PARAMETER;
             }
 
             if (attributeHeader->Size != sizeof(KSATTRIBUTE_AUDIOSIGNALPROCESSING_MODE))
             {
+                DPF_EXIT(("[CMiniportWaveRT::GetAttributesFromAttributeList]"));
                 return STATUS_INVALID_PARAMETER;
             }
 
@@ -1431,6 +1484,7 @@ Remarks
         }
         else
         {
+            DPF_EXIT(("[CMiniportWaveRT::GetAttributesFromAttributeList]"));
             return STATUS_NOT_SUPPORTED;
         }
 
@@ -1441,6 +1495,7 @@ Remarks
         cbRemaining -= cbAttribute;
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::GetAttributesFromAttributeList]"));
     return STATUS_SUCCESS;
 }
 
@@ -1466,6 +1521,7 @@ CMiniportWaveRT::IsFormatSupported
 
     if (_ulPin >= m_pMiniportPair->WaveDescriptor->PinCount)
     {
+        DPF_EXIT(("[CMiniportWaveRT::IsFormatSupported]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -1510,6 +1566,7 @@ CMiniportWaveRT::IsFormatSupported
         break;
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::IsFormatSupported]"));
     return ntStatus;
 }
 
@@ -1528,6 +1585,7 @@ CMiniportWaveRT::EvtFormatChangeHandler
     if (This == NULL)
     {
         DPF(D_ERROR, ("EvtFormatChangeHandler: context is null")); 
+        DPF_EXIT(("[CMiniportWaveRT::EvtFormatChangeHandler]"));
         return;
     }
 
@@ -1602,6 +1660,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
     // Verify instance data stores at least KSP_PIN fields beyond KSPPROPERTY.
     if (PropertyRequest->InstanceSize < (sizeof(KSP_PIN) - RTL_SIZEOF_THROUGH_FIELD(KSP_PIN, Property)))
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -1631,6 +1690,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
 
     if (!NT_SUCCESS(ntStatus))
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
         return ntStatus;
     }
 
@@ -1641,6 +1701,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
     {
         ULONG flags = PropertyRequest->PropertyItem->Flags;
         
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
         return PropertyHandler_BasicSupport(PropertyRequest, flags, VT_ILLEGAL);
     }
 
@@ -1648,10 +1709,12 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
     if (PropertyRequest->ValueSize == 0)
     {
         PropertyRequest->ValueSize = cbMinSize;
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
         return STATUS_BUFFER_OVERFLOW;
     }
     if (PropertyRequest->ValueSize < cbMinSize)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
         return STATUS_BUFFER_TOO_SMALL;
     }
 
@@ -1659,6 +1722,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
     // Only SET is supported for this property
     if ((PropertyRequest->Verb & KSPROPERTY_TYPE_SET) == 0)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
         return STATUS_INVALID_DEVICE_REQUEST;
     }
 #endif
@@ -1722,6 +1786,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
 
                 if (!bFound)
                 {
+                    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
                     return STATUS_NOT_SUPPORTED;
                 }
 
@@ -1741,6 +1806,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
             numModes = GetPinSupportedDeviceModes(kspPin->PinId, &modeInfo);
             if (numModes == 0 || modeInfo->DefaultFormat == NULL)
             {
+                DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
                 return STATUS_NOT_SUPPORTED;
             }
 
@@ -1758,6 +1824,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
             pKsFormat);
         if (!NT_SUCCESS(ntStatus))
         {
+            DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
             return ntStatus;
         }
 
@@ -1771,6 +1838,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
         }
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat]"));
     return ntStatus;
 } // PropertyHandlerProposedFormat
 
@@ -1883,6 +1951,7 @@ CMiniportWaveRT::PropertyHandlerAudioEffectsDiscoveryEffectsList
     // Verify instance data stores at least KSP_PIN fields beyond KSPPROPERTY.
     if (PropertyRequest->InstanceSize < (sizeof(KSP_PIN) - RTL_SIZEOF_THROUGH_FIELD(KSP_PIN, Property)))
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerAudioEffectsDiscoveryEffectsList]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -1962,6 +2031,7 @@ CMiniportWaveRT::PropertyHandlerAudioEffectsDiscoveryEffectsList
 
 Done:
 
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerAudioEffectsDiscoveryEffectsList]"));
     return ntStatus;
 } // PropertyHandlerAudioEffectsDiscoveryEffectsList
 
@@ -1981,6 +2051,7 @@ CMiniportWaveRT::PropertyHandlerModulesListRequest
 
     DPF_ENTER(("[CMiniportWaveRT::PropertyHandlerModulesListRequest]"));
 
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerModulesListRequest]"));
     return AudioModule_GenericHandler_ModulesListRequest(
                 PropertyRequest,
                 GetAudioModuleList(),
@@ -1999,6 +2070,7 @@ CMiniportWaveRT::PropertyHandlerModuleCommand
 
     DPF_ENTER(("[CMiniportWaveRT::PropertyHandlerModuleCommand]"));
 
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerModuleCommand]"));
     return AudioModule_GenericHandler_ModuleCommand(
                 PropertyRequest,
                 GetAudioModuleList(),
@@ -2017,6 +2089,7 @@ CMiniportWaveRT::PropertyHandlerModuleNotificationDeviceId
 
     DPF_ENTER(("[CMiniportWaveRT::PropertyHandlerModuleNotificationDeviceId]"));
 
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerModuleNotificationDeviceId]"));
     return AudioModule_GenericHandler_ModuleNotificationDeviceId(
                 PropertyRequest,
                 GetAudioModuleNotificationDeviceId());
@@ -2117,6 +2190,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
     // Verify instance data stores at least KSP_PIN fields beyond KSPPROPERTY.
     if (PropertyRequest->InstanceSize < (sizeof(KSP_PIN) - RTL_SIZEOF_THROUGH_FIELD(KSP_PIN, Property)))
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -2125,6 +2199,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
 
     if (kspPin->PinId >= m_pMiniportPair->WaveDescriptor->PinCount)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -2137,6 +2212,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
 
     if (modeInfo == NULL)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_NOT_SUPPORTED;
     }
 
@@ -2155,6 +2231,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
 
     if (!bFound)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_NOT_SUPPORTED;
     }
 
@@ -2163,6 +2240,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
     //
     if (PropertyRequest->Verb & KSPROPERTY_TYPE_BASICSUPPORT)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return PropertyHandler_BasicSupport(PropertyRequest, PropertyRequest->PropertyItem->Flags, VT_ILLEGAL);
     }
 
@@ -2175,6 +2253,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
     ntStatus = GetAttributesFromAttributeList(pKsItemsHeader, cbItemsList, &signalProcessingMode);
     if (!NT_SUCCESS(ntStatus))
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return ntStatus;
     }
 
@@ -2195,6 +2274,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
     // proprosed format for this specific mode.
     if (!bFound || modeInfo->DefaultFormat == NULL)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_NOT_SUPPORTED;
     }
 
@@ -2208,6 +2288,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
 
     if (cbItemsList > MAXULONG)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -2215,12 +2296,14 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
     ntStatus = RtlULongAdd(cbMinSize, (ULONG)cbItemsList, &cbMinSize);
     if (!NT_SUCCESS(ntStatus))
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_INVALID_PARAMETER;
     }
         
     // Property not supported.
     if (cbMinSize == 0)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_NOT_SUPPORTED;
     }
 
@@ -2228,16 +2311,19 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
     if (PropertyRequest->ValueSize == 0)
     {
         PropertyRequest->ValueSize = cbMinSize;
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_BUFFER_OVERFLOW;
     }
     if (PropertyRequest->ValueSize < cbMinSize)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_BUFFER_TOO_SMALL;
     }
 
     // Only GET is supported for this property
     if ((PropertyRequest->Verb & KSPROPERTY_TYPE_GET) == 0)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
         return STATUS_INVALID_DEVICE_REQUEST;
     }
 
@@ -2251,6 +2337,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat2
     
     PropertyRequest->ValueSize = cbMinSize;
 
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerProposedFormat2]"));
     return STATUS_SUCCESS;
 } // PropertyHandlerProposedFormat
 
@@ -2273,18 +2360,21 @@ CMiniportWaveRT::PropertyHandlerEffectListRequest
     DPF_ENTER(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
 
     // This specific APO->driver communication example is mainly added to show to this communication is done.
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
     // It skips the pin id validation and returns pin specific answers to the caller, which a real miniport 
     // audio driver probably needs to take care of.
 
     // Handle KSPROPERTY_TYPE_BASICSUPPORT query
     if (PropertyRequest->Verb & KSPROPERTY_TYPE_BASICSUPPORT)
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
         return PropertyHandler_BasicSupport(PropertyRequest, PropertyRequest->PropertyItem->Flags, VT_ILLEGAL);
     }
 
     // Verify instance data stores at least KSP_PIN fields beyond KSPPROPERTY.
     if (PropertyRequest->InstanceSize < (sizeof(KSP_PIN) - RTL_SIZEOF_THROUGH_FIELD(KSP_PIN, Property)))
     {
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -2302,10 +2392,12 @@ CMiniportWaveRT::PropertyHandlerEffectListRequest
         if (PropertyRequest->ValueSize == 0)
         {
             PropertyRequest->ValueSize = cbMinSize;
+            DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
             return STATUS_BUFFER_OVERFLOW;
         }
         if (PropertyRequest->ValueSize < cbMinSize)
         {
+            DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
             return STATUS_BUFFER_TOO_SMALL;
         }
         // Value is a KSMULTIPLE_ITEM followed by list of GUIDs.
@@ -2320,9 +2412,11 @@ CMiniportWaveRT::PropertyHandlerEffectListRequest
         ksMultipleItem->Count = ulEffectsCount;
 
         PropertyRequest->ValueSize = ksMultipleItem->Size;
+        DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
         return STATUS_SUCCESS;
     }
 
+    DPF_EXIT(("[CMiniportWaveRT::PropertyHandlerEffectListRequest]"));
     return STATUS_INVALID_DEVICE_REQUEST;
 
 } // PropertyHandlerEffectListRequest
@@ -2367,12 +2461,14 @@ Return Value:
     //
     if (!m_pDrmPort)
     {
+        DPF_EXIT(("[CMiniportWaveRT::UpdateDrmRights]"));
         return STATUS_UNSUCCESSFUL;
     }
 
     ulContentIds = new (POOL_FLAG_NON_PAGED, MINWAVERT_POOLTAG) ULONG[m_ulMaxSystemStreams + m_ulMaxOffloadStreams];
     if (!ulContentIds)
     {
+        DPF_EXIT(("[CMiniportWaveRT::UpdateDrmRights]"));
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -2464,6 +2560,7 @@ Return Value:
     delete [] ulContentIds;
     ulContentIds = NULL;
 
+    DPF_EXIT(("[CMiniportWaveRT::UpdateDrmRights]"));
     return ntStatus;
 } // UpdateDrmRights
 
