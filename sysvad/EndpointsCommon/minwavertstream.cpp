@@ -111,8 +111,8 @@ Return Value:
     ASSERT(m_SidebandStarted == FALSE);
 #endif  // SYSVAD_BTH_BYPASS
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
-DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_ENTER();
+DPF_EXIT();
 } // ~CMiniportWaveRTStream
 
 //=============================================================================
@@ -538,7 +538,7 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
 )
 {
     NTSTATUS ntStatus = STATUS_SUCCESS;
-	DPF_ENTER(("[%s]", __FUNCTION__));
+	DPF_ENTER();
     PAGED_CODE();
 
     ULONG ulBufferDurationMs = 0;
@@ -608,7 +608,7 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
 
 Done:
     DPF(D_TERSE,("ntStatus:(0x%08x)\n", ntStatus));
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_SUCCESS;
 }
 
@@ -638,7 +638,7 @@ VOID CMiniportWaveRTStream::FreeBufferWithNotification
     m_ulDmaBufferSize = 0;
     m_ulNotificationsPerBuffer = 0;
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return;
 }
 
@@ -659,7 +659,7 @@ NTSTATUS CMiniportWaveRTStream::RegisterNotificationEvent
         MINWAVERTSTREAM_POOLTAG);
     if (NULL == nleNew)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -675,7 +675,7 @@ NTSTATUS CMiniportWaveRTStream::RegisterNotificationEvent
             if (nleCurrent->NotificationEvent == NotificationEvent_)
             {
                 ExFreePoolWithTag( nleNew, MINWAVERTSTREAM_POOLTAG );
-                DPF_EXIT(("[%s]", __FUNCTION__));
+                DPF_EXIT();
                 return STATUS_UNSUCCESSFUL;
             }
 
@@ -685,7 +685,7 @@ NTSTATUS CMiniportWaveRTStream::RegisterNotificationEvent
 
     InsertTailList(&m_NotificationList, &(nleNew->ListEntry));
     
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_SUCCESS;
 }
 
@@ -710,7 +710,7 @@ NTSTATUS CMiniportWaveRTStream::UnregisterNotificationEvent
             {
                 RemoveEntryList( leCurrent );
                 ExFreePoolWithTag( nleCurrent, MINWAVERTSTREAM_POOLTAG );
-                DPF_EXIT(("[%s]", __FUNCTION__));
+                DPF_EXIT();
                 return STATUS_SUCCESS;
             }
 
@@ -718,7 +718,7 @@ NTSTATUS CMiniportWaveRTStream::UnregisterNotificationEvent
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_NOT_FOUND;
 }
 
@@ -734,7 +734,7 @@ NTSTATUS CMiniportWaveRTStream::GetClockRegister
 
     PAGED_CODE();
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_NOT_IMPLEMENTED;
 }
 
@@ -749,7 +749,7 @@ NTSTATUS CMiniportWaveRTStream::GetPositionRegister
 
     PAGED_CODE();
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_NOT_IMPLEMENTED;
 }
 
@@ -811,7 +811,7 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
 
     if ((0 == RequestedSize_) || (RequestedSize_ < m_pWfExt->Format.nBlockAlign))
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -825,7 +825,7 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
 
     if (NULL == pBufferMdl)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -854,7 +854,7 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
     *OffsetFromFirstPage_ = 0;
     *CacheType_ = MmCached;
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_SUCCESS;
 }
 
@@ -878,7 +878,7 @@ NTSTATUS CMiniportWaveRTStream::GetPosition
     // Return failure if this is the keyword detector pin
     if (m_pMiniport->IsKeywordDetectorPin(m_ulPin))
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_NOT_SUPPORTED;
     }
 
@@ -904,7 +904,7 @@ NTSTATUS CMiniportWaveRTStream::GetPosition
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
 Done:
 #endif // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -941,7 +941,7 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
     // The call must be from event driven mode
     if(m_ulNotificationsPerBuffer == 0)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_NOT_SUPPORTED;
     }
     
@@ -949,7 +949,7 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
 
     if (m_KsState < KSSTATE_PAUSE)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -962,7 +962,7 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
         {
             m_ulLastOsReadPacket = *PacketNumber;
         }
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return ntStatus;
     }
 
@@ -983,7 +983,7 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
     // If no new packets are available...
     if (availablePacketNumber == m_ulLastOsReadPacket)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_DEVICE_NOT_READY;
     }
 
@@ -998,7 +998,7 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
     // Return next packet number to be read
     *PacketNumber = availablePacketNumber;
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     // Compute and return timestamp corresponding to the end of the available packet. In a real hardware
     // driver, the timestamp would be computed in a driver and hardware specific manner. In this sample
     // driver, it is extrapolated from the sample driver's internal simulated position correlation
@@ -1024,7 +1024,7 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
     // Update the last packet read by the OS
     m_ulLastOsReadPacket = availablePacketNumber;
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_SUCCESS;
 }
 
@@ -1042,7 +1042,7 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
     // The call must be from event driven mode
     if (m_ulNotificationsPerBuffer == 0)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_NOT_SUPPORTED;
     }
 
@@ -1051,7 +1051,7 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
     // This function should not be called once EoS has been set.
     if (m_bEoSReceived)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -1074,12 +1074,12 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
     LONG deltaFromExpectedPacket = PacketNumber - expectedPacket;   // Modulo arithemetic
     if (deltaFromExpectedPacket < 0)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_DATA_LATE_ERROR;
     }
     else if (deltaFromExpectedPacket > 0)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_DATA_OVERRUN;
     }
 
@@ -1092,7 +1092,7 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
     {
         if (EosPacketLength > packetSize)
         {
-            DPF_EXIT(("[%s]", __FUNCTION__));
+            DPF_EXIT();
             return STATUS_INVALID_PARAMETER;
         }
         else {
@@ -1109,7 +1109,7 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
 
         // This function sets the current write position to the specified byte in the DMA buffer.
         // Will check if the write position is smaller than the DMA buffer size.
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         // Will not return an error when the passed in parameter is 0.
         // Will also check if this function was called with the same write position(in event mode only)
         // Underruning will also be checked via timer mechanism
@@ -1123,7 +1123,7 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
         m_ulLastOsWritePacket = oldLastOsWritePacket;
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -1140,11 +1140,11 @@ NTSTATUS CMiniportWaveRTStream::GetOutputStreamPresentationPosition
     // The call must be from event driven mode
     if(m_ulNotificationsPerBuffer == 0)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_NOT_SUPPORTED;
     }
     
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return GetPresentationPosition(pPresentationPosition);
 }
 
@@ -1161,7 +1161,7 @@ NTSTATUS CMiniportWaveRTStream::GetPacketCount
     // The call must be from event driven mode
     if(m_ulNotificationsPerBuffer == 0)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return STATUS_NOT_SUPPORTED;
     }
     
@@ -1178,7 +1178,7 @@ NTSTATUS CMiniportWaveRTStream::GetPacketCount
     *pPacketCount = LODWORD(m_llPacketCounter);
     KeReleaseSpinLock(&m_PositionSpinLock, oldIrql);
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return STATUS_SUCCESS;
 }
 
@@ -1189,7 +1189,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
     _In_    KSSTATE State_
 )
 {
-	DPF_ENTER(("[%s]", __FUNCTION__));
+	DPF_ENTER();
     NTSTATUS        ntStatus        = STATUS_SUCCESS;
     PADAPTERCOMMON  pAdapterComm    = m_pMiniport->GetAdapterCommObj();
     KIRQL oldIrql;
@@ -1408,7 +1408,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
 Done:
 #endif  // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -1428,7 +1428,7 @@ NTSTATUS CMiniportWaveRTStream::SetFormat
         ntStatus = m_SaveData.SetDataFormat(DataFormat_);
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -1441,7 +1441,7 @@ VOID CMiniportWaveRTStream::UpdatePosition
     _In_ LARGE_INTEGER ilQPC
 )
 {
-	DPF_ENTER(("[%s]", __FUNCTION__));
+	DPF_ENTER();
 
     // Convert ticks to 100ns units.
     LONGLONG  hnsCurrentTime = KSCONVERT_PERFORMANCE_TIME(m_ullPerformanceCounterFrequency.QuadPart, ilQPC);
@@ -1629,7 +1629,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS    ntStatus;
     ULONG       ulOldContentId = contentId;
@@ -1688,7 +1688,7 @@ Return Value:
     // For more information, see MSDN's DRM Functions and Interfaces.
     //
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // SetContentId
 
@@ -1710,7 +1710,7 @@ Return Value:
 
 --*/
 {
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS  ntStatus  = STATUS_INVALID_DEVICE_STATE;
         
@@ -1728,7 +1728,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;        
 }
 #endif // defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
@@ -1748,9 +1748,9 @@ CMiniportWaveRTStream::PropertyHandlerModulesListRequest
 
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return AudioModule_GenericHandler_ModulesListRequest(
                 PropertyRequest,
                 GetAudioModuleList(),
@@ -1767,9 +1767,9 @@ CMiniportWaveRTStream::PropertyHandlerModuleCommand
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return AudioModule_GenericHandler_ModuleCommand(
                 PropertyRequest,
                 GetAudioModuleList(),

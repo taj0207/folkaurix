@@ -117,8 +117,8 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
-DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_ENTER();
+DPF_EXIT();
 } // ~CMicArrayMiniportTopology
 
 //=============================================================================
@@ -251,7 +251,7 @@ Return Value:
     ASSERT(UnknownAdapter);
     ASSERT(Port_);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS                    ntStatus;
 
@@ -262,7 +262,7 @@ Return Value:
             Port_
         );
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // Init
 
@@ -348,7 +348,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS    ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG       nPinId = (ULONG)-1;
@@ -501,7 +501,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -532,7 +532,7 @@ NT status code.
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS    ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG       nPinId = (ULONG)-1;
@@ -603,7 +603,7 @@ NT status code.
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -633,7 +633,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    nPinId = (ULONG)-1;
@@ -693,7 +693,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -723,7 +723,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    nPinId = (ULONG)-1;
@@ -783,7 +783,7 @@ Return Value:
                         // a client application can call IKsJackDescription2::GetJackDescription2 to read 
                         // the JackCapabilities flag of the KSJACK_DESCRIPTION2 structure. If this flag has
                         // the JACKDESC2_PRESENCE_DETECT_CAPABILITY bit set, it indicates that the endpoint 
-                        DPF_EXIT(("[%s]", __FUNCTION__));
+                        DPF_EXIT();
                         // does in fact support jack presence detection. In that case, the return value of 
                         // the IsConnected member can be interpreted to accurately reflect the insertion status
                         // of the jack."
@@ -801,7 +801,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 }
 
@@ -831,7 +831,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     // PropertryRequest structure is filled by portcls. 
     // MajorTarget is a pointer to miniport object for miniports.
@@ -866,7 +866,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandler_TopoFilter
 
@@ -896,14 +896,14 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     // PropertryRequest structure is filled by portcls. 
     // MajorTarget is a pointer to miniport object for miniports.
     //
     PCMicArrayMiniportTopology pMiniport = (PCMicArrayMiniportTopology)PropertyRequest->MajorTarget;
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return pMiniport->PropertyHandlerGeneric(PropertyRequest);
 } // PropertyHandler_MicArrayTopology
 

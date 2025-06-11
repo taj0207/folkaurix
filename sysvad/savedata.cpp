@@ -101,7 +101,7 @@ CSaveData::~CSaveData()
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     //
     // All write activity is done at this point (see acquire->stop stream transition).
@@ -164,7 +164,7 @@ CSaveData::~CSaveData()
         ExFreePoolWithTag(m_pDataBuffer, SAVEDATA_POOLTAG4);
         m_pDataBuffer = NULL;
     }
-DPF_EXIT(("[%s]", __FUNCTION__));
+DPF_EXIT();
 } // CSaveData
 
 //=============================================================================
@@ -470,7 +470,7 @@ CSaveData::Initialize
     OBJECT_ATTRIBUTES   objectAttributes;
     UNICODE_STRING      fileName;
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     if (_bOffloaded)
     {
@@ -664,7 +664,7 @@ CSaveData::Initialize
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // Initialize
 
@@ -681,11 +681,11 @@ CSaveData::InitializeWorkItems
 
     NTSTATUS                    ntStatus = STATUS_SUCCESS;
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     if (m_pWorkItems != NULL)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT();
         return ntStatus;
     }
 
@@ -704,7 +704,7 @@ CSaveData::InitializeWorkItems
             m_pWorkItems[i].WorkItem = IoAllocateWorkItem(DeviceObject);
             if(m_pWorkItems[i].WorkItem == NULL)
             {
-              DPF_EXIT(("[%s]", __FUNCTION__));
+              DPF_EXIT();
               return STATUS_INSUFFICIENT_RESOURCES;
             }
             KeInitializeEvent
@@ -720,7 +720,7 @@ CSaveData::InitializeWorkItems
         ntStatus = STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // InitializeWorkItems
 
@@ -794,7 +794,7 @@ CSaveData::SetDataFormat
     PAGED_CODE();
     NTSTATUS                    ntStatus = STATUS_SUCCESS;
  
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     ASSERT(pDataFormat);
 
@@ -843,7 +843,7 @@ CSaveData::SetDataFormat
             ntStatus = STATUS_INSUFFICIENT_RESOURCES;
         }
     }
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // SetDataFormat
 
@@ -860,7 +860,7 @@ CSaveData::SetMaxWriteSize
     ULONG       bufferSize  = 0;
     PBYTE       buffer      = NULL;
  
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     // 
     // Compute new buffer size.
@@ -909,7 +909,7 @@ CSaveData::SetMaxWriteSize
     ntStatus = STATUS_SUCCESS;
 
 Done:
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // SetDataFormat
 
@@ -940,7 +940,7 @@ CSaveData::SaveFrame
 {
     PSAVEWORKER_PARAM           pParam = NULL;
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     pParam = GetNewWorkItem();
     if (pParam)
@@ -952,7 +952,7 @@ CSaveData::SaveFrame
         IoQueueWorkItem(pParam->WorkItem, SaveFrameWorkerCallback,
                         CriticalWorkQueue, (PVOID)pParam);
     }
-DPF_EXIT(("[%s]", __FUNCTION__));
+DPF_EXIT();
 } // SaveFrame
 #pragma code_seg("PAGE")
 //=============================================================================
@@ -964,7 +964,7 @@ CSaveData::WaitAllWorkItems
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     // Save the last partially-filled frame
     if (m_ulBufferOffset > m_ulFrameIndex * m_ulFrameSize)
@@ -987,7 +987,7 @@ CSaveData::WaitAllWorkItems
             NULL
         );
     }
-DPF_EXIT(("[%s]", __FUNCTION__));
+DPF_EXIT();
 } // WaitAllWorkItems
 
 #pragma code_seg()
@@ -1012,11 +1012,11 @@ CSaveData::WriteData
         return;
     }
 
-    DPF_ENTER(("[%s ulByteCount=%lu]", __FUNCTION__, ulByteCount));
+    DPF_ENTER();
 
     if( 0 == ulByteCount )
     {
-        DPF_EXIT(("[%s ulByteCount=%lu]", __FUNCTION__, ulByteCount));
+        DPF_EXIT();
         return;
     }
 

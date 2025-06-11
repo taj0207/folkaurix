@@ -46,7 +46,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     m_AdapterCommon     = NULL;
 
@@ -56,7 +56,7 @@ Return Value:
     
     ASSERT(DeviceMaxChannels > 0);
     m_DeviceMaxChannels = DeviceMaxChannels;
-DPF_EXIT(("[%s]",__FUNCTION__));
+DPF_EXIT();
 } // CMiniportTopologySYSVAD
 
 CMiniportTopologySYSVAD::~CMiniportTopologySYSVAD
@@ -79,11 +79,11 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     SAFE_RELEASE(m_AdapterCommon);
     SAFE_RELEASE(m_PortEvents);
-DPF_EXIT(("[%s]",__FUNCTION__));
+DPF_EXIT();
 } // ~CMiniportTopologySYSVAD
 
 //=============================================================================
@@ -141,9 +141,9 @@ Return Value:
 
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return (STATUS_NOT_IMPLEMENTED);
 } // DataRangeIntersection
 
@@ -177,11 +177,11 @@ Return Value:
 
     ASSERT(OutFilterDescriptor);
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     *OutFilterDescriptor = m_FilterDescriptor;
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return (STATUS_SUCCESS);
 } // GetDescription
 
@@ -216,7 +216,7 @@ Return Value:
     ASSERT(UnknownAdapter_);
     ASSERT(Port_);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS    ntStatus;
 
@@ -247,7 +247,7 @@ Return Value:
         SAFE_RELEASE(m_PortEvents);
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // Init
 
@@ -345,7 +345,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS                    ntStatus = STATUS_INVALID_DEVICE_REQUEST;
 
@@ -388,7 +388,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandlerMuxSource
 
@@ -417,7 +417,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS ntStatus=STATUS_SUCCESS;
 
@@ -457,7 +457,7 @@ Return Value:
                 } 
                 else if (PropertyRequest->ValueSize >= sizeof(KSPROPERTY_DESCRIPTION))
                 {
-                    DPF_EXIT(("[%s]",__FUNCTION__));
+                    DPF_EXIT();
                     // if return buffer can hold a KSPROPERTY_DESCRIPTION, return it
                     //
                     PKSPROPERTY_DESCRIPTION PropDesc = PKSPROPERTY_DESCRIPTION(PropertyRequest->Value);
@@ -472,7 +472,7 @@ Return Value:
 
                     if ( PropertyRequest->ValueSize >= ExpectedSize )
                     {
-                        DPF_EXIT(("[%s]",__FUNCTION__));
+                        DPF_EXIT();
                         // Extra information to return
                         PropDesc->MembersListCount  = 1;
 
@@ -494,13 +494,13 @@ Return Value:
                             PeakMeterBounds->UnsignedMaximum = 0xffffffff;
                         }
 
-                        DPF_EXIT(("[%s]",__FUNCTION__));
+                        DPF_EXIT();
                         // set the return value size
                         PropertyRequest->ValueSize = ExpectedSize;
                     }
                     else
                     {
-                        DPF_EXIT(("[%s]",__FUNCTION__));
+                        DPF_EXIT();
                         // No extra information to return.
                         PropertyRequest->ValueSize = sizeof(KSPROPERTY_DESCRIPTION);
                     }
@@ -509,7 +509,7 @@ Return Value:
                 } 
                 else if (PropertyRequest->ValueSize >= sizeof(ULONG))
                 {
-                    DPF_EXIT(("[%s]",__FUNCTION__));
+                    DPF_EXIT();
                     // if return buffer can hold a ULONG, return the access flags
                     //
                     *(PULONG(PropertyRequest->Value)) = KSPROPERTY_TYPE_ALL;
@@ -620,7 +620,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandlerDevSpecific
 
@@ -644,7 +644,7 @@ Arguments:
 --*/
 {
     PAGED_CODE();
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     ASSERT(m_PortEvents != NULL);
 
@@ -686,7 +686,7 @@ Arguments:
 
 --*/
 {
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     ASSERT(m_PortEvents != NULL);
 
