@@ -922,7 +922,6 @@ NTSTATUS CMiniportWaveRTStream::GetPositions(
 
     // Update *_pullLinearBufferPosition with the the number of bytes fetched from waveRT ever since a stream got set into RUN
     // state.
-    DPF_EXIT(("[%s]", __FUNCTION__));
     // Once the stream is set to STOP state, any further read on this call would return zero.
 
     //

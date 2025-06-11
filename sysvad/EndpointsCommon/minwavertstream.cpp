@@ -537,6 +537,7 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
     _Out_   MEMORY_CACHING_TYPE *CacheType_
 )
 {
+    NTSTATUS ntStatus = STATUS_SUCCESS;
 	DPF_ENTER(("[%s]", __FUNCTION__));
     PAGED_CODE();
 
@@ -544,29 +545,26 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
 
     if ( (0 == RequestedSize_) || (RequestedSize_ < m_pWfExt->Format.nBlockAlign) )
     { 
-        DPF_EXIT(("[%s]", __FUNCTION__));
-        return STATUS_UNSUCCESSFUL; 
+        ntStatus  = STATUS_UNSUCCESSFUL; 
+        goto Done;
     }
     
     if ((NotificationCount_ == 0) || (RequestedSize_ % NotificationCount_ != 0))
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
-        return STATUS_INVALID_PARAMETER;
+        ntStatus  = STATUS_INVALID_PARAMETER; 
+        goto Done; 
     }
 
     RequestedSize_ -= RequestedSize_ % (m_pWfExt->Format.nBlockAlign);
     
     if (!m_bCapture && !g_DoNotCreateDataFiles)
     {
-        NTSTATUS ntStatus;
-        
         // Sysvad uses following buffer to hold data before writing to a file.
         // Allocating larger buffer will reduce File I/O operations.
         ntStatus = m_SaveData.SetMaxWriteSize(RequestedSize_ * 4);
         if (!NT_SUCCESS(ntStatus))
         {
-            DPF_EXIT(("[%s]", __FUNCTION__));
-            return ntStatus;
+            goto Done;
         }
     }
 
@@ -578,8 +576,8 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
 
     if (NULL == pBufferMdl)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
-        return STATUS_UNSUCCESSFUL;
+        ntStatus  = STATUS_UNSUCCESSFUL; 
+        goto Done;
     }
 
     // From MSDN: 
@@ -608,6 +606,8 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
     *OffsetFromFirstPage_ = 0;
     *CacheType_ = MmCached;
 
+Done:
+    DPF(D_TERSE,("ntStatus:(0x%08x)\n", ntStatus));
     DPF_EXIT(("[%s]", __FUNCTION__));
     return STATUS_SUCCESS;
 }

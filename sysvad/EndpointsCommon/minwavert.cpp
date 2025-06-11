@@ -876,15 +876,12 @@ CMiniportWaveRT::GetModes
 /*
 
 1.	If Pin is not a valid pin number, 
-        DPF_EXIT(("[%s]", __FUNCTION__));
         return STATUS_INVALID_PARAMETER.
         
 2.	If Pin is a valid pin number and it supports n modes (n>0), 
-        DPF_EXIT(("[%s]", __FUNCTION__));
         init out-parameters and return STATUS_SUCCESS.
     
 3.  Else this pin doesn't support any mode,
-        DPF_EXIT(("[%s]", __FUNCTION__));
         return STATUS_NOT_SUPPORTED. 
         example: bridge pins or another mode-not-aware pins.
 
@@ -900,8 +897,8 @@ CMiniportWaveRT::GetModes
 
     if (Pin >= m_pMiniportPair->WaveDescriptor->PinCount)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
-        return STATUS_INVALID_PARAMETER;
+        ntStatus = STATUS_INVALID_PARAMETER;
+        goto Done;
     }
 
     //
@@ -916,11 +913,10 @@ CMiniportWaveRT::GetModes
     numModes = GetPinSupportedDeviceModes(Pin, &modeInfo);
     if (numModes == 0)
     {
-        DPF_EXIT(("[%s]", __FUNCTION__));
-        return STATUS_NOT_SUPPORTED;
+        ntStatus  = STATUS_NOT_SUPPORTED;
+        goto Done;
     }
    
-    DPF_EXIT(("[%s]", __FUNCTION__));
     // If caller requests the modes, verify sufficient buffer size then return the modes
     if (SignalProcessingModes != NULL)
     {
@@ -941,7 +937,8 @@ CMiniportWaveRT::GetModes
     *NumSignalProcessingModes = numModes;
     ntStatus = STATUS_SUCCESS;
 
-Done:   
+Done:  
+    DPF(4, ("return statue:(0x%08x)\n",ntStatus)); 
     DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 }
@@ -1108,7 +1105,7 @@ ULONG CMiniportWaveRT::GetAudioEngineSupportedDeviceFormats(_Outptr_opt_result_b
 _Use_decl_annotations_
 ULONG CMiniportWaveRT::GetPinSupportedDeviceModes(_In_ ULONG PinId, _Outptr_opt_result_buffer_(return) _On_failure_(_Deref_post_null_) MODE_AND_DEFAULT_FORMAT **ppModes)
 {
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_ENTER(("[%s]", __FUNCTION__));
     PMODE_AND_DEFAULT_FORMAT modes;
     ULONG numModes;
 
@@ -1146,7 +1143,6 @@ ULONG CMiniportWaveRT::GetPinSupportedDeviceModes(_In_ ULONG PinId, _Outptr_opt_
         }
         else
         {
-            DPF_EXIT(("[%s]", __FUNCTION__));
             // ensure that the returned pointer is NULL
             // in the event of failure (SAL annotation above
             // indicates that it must be NULL, and OACR sees a possibility
@@ -1163,6 +1159,7 @@ ULONG CMiniportWaveRT::GetPinSupportedDeviceModes(_In_ ULONG PinId, _Outptr_opt_
 #pragma code_seg()
 BOOL CMiniportWaveRT::IsSystemCapturePin(ULONG nPinId)
 {
+    DPF_ENTER(("[%s]", __FUNCTION__));
     AcquireFormatsAndModesLock();
 
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
@@ -1175,6 +1172,7 @@ BOOL CMiniportWaveRT::IsSystemCapturePin(ULONG nPinId)
 #pragma code_seg()
 BOOL CMiniportWaveRT::IsCellularBiDiCapturePin(ULONG nPinId)
 {
+    DPF_ENTER(("[%s]", __FUNCTION__));
     AcquireFormatsAndModesLock();
 
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
@@ -1187,6 +1185,7 @@ BOOL CMiniportWaveRT::IsCellularBiDiCapturePin(ULONG nPinId)
 #pragma code_seg()
 BOOL CMiniportWaveRT::IsSystemRenderPin(ULONG nPinId)
 {
+    DPF_ENTER(("[%s]", __FUNCTION__));
     AcquireFormatsAndModesLock();
 
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
@@ -1199,6 +1198,7 @@ BOOL CMiniportWaveRT::IsSystemRenderPin(ULONG nPinId)
 #pragma code_seg()
 BOOL CMiniportWaveRT::IsLoopbackPin(ULONG nPinId)
 {
+    DPF_ENTER(("[%s]", __FUNCTION__));
     AcquireFormatsAndModesLock();
 
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
@@ -1211,6 +1211,7 @@ BOOL CMiniportWaveRT::IsLoopbackPin(ULONG nPinId)
 #pragma code_seg()
 BOOL CMiniportWaveRT::IsOffloadPin(ULONG nPinId)
 {
+    DPF_ENTER(("[%s]", __FUNCTION__));
     AcquireFormatsAndModesLock();
 
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
@@ -1223,6 +1224,7 @@ BOOL CMiniportWaveRT::IsOffloadPin(ULONG nPinId)
 #pragma code_seg()
 BOOL CMiniportWaveRT::IsBridgePin(ULONG nPinId)
 {
+    DPF_ENTER(("[%s]", __FUNCTION__));
     AcquireFormatsAndModesLock();
 
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
@@ -1235,6 +1237,7 @@ BOOL CMiniportWaveRT::IsBridgePin(ULONG nPinId)
 #pragma code_seg()
 BOOL CMiniportWaveRT::IsKeywordDetectorPin(ULONG nPinId)
 {
+    DPF_ENTER(("[%s]", __FUNCTION__));
     AcquireFormatsAndModesLock();
 
     PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
@@ -1264,13 +1267,13 @@ CMiniportWaveRT::StreamCreated
     if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
     {
         ALLOCATE_PIN_INSTANCE_RESOURCES(m_ulSystemAllocated);
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT(("[%s] [Line:(%d)]", __FUNCTION__,__LINE__));
         return STATUS_SUCCESS;
     }
     if (IsKeywordDetectorPin(_Pin))
     {
         ALLOCATE_PIN_INSTANCE_RESOURCES(m_ulKeywordDetectorAllocated);
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT(("[%s] [Line:(%d)]", __FUNCTION__,__LINE__));
         return STATUS_SUCCESS;
     }
     else if (IsLoopbackPin(_Pin))
@@ -1310,7 +1313,7 @@ CMiniportWaveRT::StreamCreated
         ASSERT(i != count);
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT(("[%s] [Line:(%d)]", __FUNCTION__,__LINE__));
     return STATUS_SUCCESS;
 }
 
@@ -1334,13 +1337,13 @@ CMiniportWaveRT::StreamClosed
     if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
     {
         FREE_PIN_INSTANCE_RESOURCES(m_ulSystemAllocated);
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT(("[%s] [Line:(%d)]", __FUNCTION__,__LINE__));
         return STATUS_SUCCESS;
     }
     if (IsKeywordDetectorPin(_Pin))
     {
         FREE_PIN_INSTANCE_RESOURCES(m_ulKeywordDetectorAllocated);
-        DPF_EXIT(("[%s]", __FUNCTION__));
+        DPF_EXIT(("[%s] [Line:(%d)]", __FUNCTION__,__LINE__));
         return STATUS_SUCCESS;
     }
     else if (IsLoopbackPin(_Pin))
@@ -1389,7 +1392,7 @@ CMiniportWaveRT::StreamClosed
         UpdateDrmRights();
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT(("[%s] [Line:(%d)]", __FUNCTION__,__LINE__));
     return STATUS_SUCCESS;
 }
 
@@ -1565,7 +1568,7 @@ CMiniportWaveRT::IsFormatSupported
         ntStatus = STATUS_SUCCESS;
         break;
     }
-
+    DPF(D_TERSE, ("result: (0x%08x\n)", ntStatus));
     DPF_EXIT(("[%s]", __FUNCTION__));
     return ntStatus;
 }
