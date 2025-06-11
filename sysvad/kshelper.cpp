@@ -631,7 +631,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
 
@@ -655,7 +655,7 @@ Return Value:
             );
     }
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandlerCpuResources
 
@@ -690,7 +690,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    ulChannel;
@@ -763,7 +763,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandlerVolume
 
@@ -798,7 +798,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS                    ntStatus;
     ULONG                       ulChannel;
@@ -871,7 +871,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandlerMute
 
@@ -906,7 +906,7 @@ Return Value:
 {
     PAGED_CODE();
 
-    DPF_ENTER(("[%s]",__FUNCTION__));
+    DPF_ENTER();
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     ULONG    ulChannel;
@@ -957,7 +957,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]",__FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandlerVolume
 

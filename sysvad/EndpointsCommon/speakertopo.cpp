@@ -48,7 +48,7 @@ Return Value:
 
     ASSERT(PropertyRequest);
 
-    DPF_ENTER(("[%s]", __FUNCTION__));
+    DPF_ENTER();
 
     // PropertyRequest structure is filled by portcls. 
     // MajorTarget is a pointer to miniport object for miniports.
@@ -104,7 +104,7 @@ Return Value:
         }
     }
 
-    DPF_EXIT(("[%s]", __FUNCTION__));
+    DPF_EXIT();
     return ntStatus;
 } // PropertyHandler_SpeakerTopoFilter
 
