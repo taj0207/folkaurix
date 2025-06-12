@@ -139,6 +139,9 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
+    wprintf(L"Render device format: %u channels, %u-bit, %u Hz\n",
+            pwfx->nChannels, pwfx->wBitsPerSample, pwfx->nSamplesPerSec);
+
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration, 0, pwfx, nullptr);
@@ -220,6 +223,7 @@ int wmain(int argc, wchar_t** argv)
         UINT32 padding = 0;
         pAudioClient->GetCurrentPadding(&padding);
         UINT32 framesToWrite = bufferFrameCount - padding;
+        wprintf(L"padding=%u, framesToWrite=%u\n", padding, framesToWrite);
 
         BYTE* pData = nullptr;
         if (FAILED(pRenderClient->GetBuffer(framesToWrite, &pData)))
