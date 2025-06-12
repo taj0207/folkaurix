@@ -175,7 +175,7 @@ int wmain(int argc, wchar_t** argv)
 
     UINT32 bufferFrameCount = 0;
     pAudioClient->GetBufferSize(&bufferFrameCount);
-
+    wprintf(L"GetBufferSize: 0x%08lx\n", bufferFrameCount);
     hr = pAudioClient->Start();
     if (FAILED(hr))
     {
@@ -222,6 +222,7 @@ int wmain(int argc, wchar_t** argv)
 
         UINT32 padding = 0;
         pAudioClient->GetCurrentPadding(&padding);
+        wprintf(L"GetCurrentPadding: 0x%08lx\n", padding);
         UINT32 framesToWrite = bufferFrameCount - padding;
         wprintf(L"padding=%u, framesToWrite=%u\n", padding, framesToWrite);
 
@@ -239,9 +240,10 @@ int wmain(int argc, wchar_t** argv)
                              &bytesReturned,
                              nullptr))
         {
-            wprintf(L"DeviceIoControl failed: %lu\n", GetLastError());
+            wprintf(L"DeviceIoControl failed: 0x%08lx\n", GetLastError());
             bytesReturned = 0;
         }
+
 
         DWORD copyBytes = min(bytesReturned, bytesNeeded);
         CopyMemory(pData, buffer, copyBytes);

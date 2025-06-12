@@ -763,7 +763,7 @@ Return Value:
     {
         stream->Release();
     }
-    
+    DPF(4,("return statue:(0x%08x)", ntStatus));
     DPF_EXIT();
     return ntStatus;
 } // NewStream
@@ -1638,6 +1638,7 @@ CMiniportWaveRT::EvtFormatChangeHandler
                 ULONG(-1));
         }
     }
+    DPF_EXIT();
 }
 #endif  // #ifdef SYSVAD_BTH_BYPASS
 
@@ -2118,6 +2119,7 @@ CMiniportWaveRT::EventHandler_PinCapsChange
 _In_  PPCEVENT_REQUEST EventRequest
 )
 {
+    DPF_ENTER();
     if (*EventRequest->EventItem->Set != KSEVENTSETID_PinCapsChange)
     {
         return STATUS_INVALID_PARAMETER;
@@ -2158,7 +2160,7 @@ _In_  PPCEVENT_REQUEST EventRequest
     default:
         return STATUS_INVALID_PARAMETER;
     }
-
+    DPF_EXIT();
     return STATUS_SUCCESS;
 }
 
