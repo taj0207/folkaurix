@@ -84,11 +84,14 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
                             const std::string& targetLanguage,
                             IMMDevice* pRenderDevice)
 {
-    using ::google::cloud::speech::v1::SpeechClient;
+    // Updated namespaces for Google Cloud C++ client libraries.  Recent
+    // versions place the service clients outside the versioned proto
+    // namespaces.
+    using ::google::cloud::speech::SpeechClient;
     using ::google::cloud::speech::v1::RecognitionConfig;
     using ::google::cloud::speech::v1::RecognitionAudio;
-    using ::google::cloud::translate::v3::TranslationServiceClient;
-    using ::google::cloud::texttospeech::v1::TextToSpeechClient;
+    using ::google::cloud::translate_v3::TranslationServiceClient;
+    using ::google::cloud::texttospeech::TextToSpeechClient;
 
     // Read WAV data from disk
     std::ifstream file(wavPath, std::ios::binary | std::ios::ate);
@@ -100,7 +103,8 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     file.read(wavData.data(), size);
 
     // ---- Speech to Text ----
-    SpeechClient speechClient;
+    SpeechClient speechClient(
+        ::google::cloud::speech::MakeSpeechConnection());
     RecognitionConfig recConfig;
     recConfig.set_encoding(RecognitionConfig::LINEAR16);
     recConfig.set_sample_rate_hertz(48000);
@@ -118,13 +122,19 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     }
 
     // ---- Translation ----
-    TranslationServiceClient transClient;
-    auto transResp = transClient.TranslateText(transcript, targetLanguage, "en");
+    TranslationServiceClient transClient(
+        ::google::cloud::translate_v3::MakeTranslationServiceConnection());
+    auto transResp = transClient.TranslateText(
+        "projects/-/locations/global", {transcript}, targetLanguage, "en");
     if (!transResp) return false;
-    std::string translatedText = (*transResp)[0].translated_text();
+    std::string translatedText;
+    if (!transResp->translations().empty()) {
+        translatedText = transResp->translations(0).translated_text();
+    }
 
     // ---- Text to Speech ----
-    TextToSpeechClient ttsClient;
+    TextToSpeechClient ttsClient(
+        ::google::cloud::texttospeech::MakeTextToSpeechConnection());
     ::google::cloud::texttospeech::v1::SynthesisInput input;
     input.set_text(translatedText);
     ::google::cloud::texttospeech::v1::VoiceSelectionParams voice;
@@ -190,7 +200,8 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
             break;
 
         DWORD bytesNeeded = framesToWrite * format.nBlockAlign;
-        DWORD copyBytes = static_cast<DWORD>(min<size_t>(bytesNeeded, remaining));
+        DWORD copyBytes =
+            static_cast<DWORD>(std::min<size_t>(bytesNeeded, remaining));
         CopyMemory(pData, dataPtr, copyBytes);
         if (copyBytes < bytesNeeded)
             ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
