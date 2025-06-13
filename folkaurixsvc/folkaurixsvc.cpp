@@ -65,8 +65,15 @@ bool ConvertRawToWav(const wchar_t* rawPath,
 #define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
 #endif
 
+#ifdef _DEBUG
 #define DPF_ENTER() wprintf(L"[ENTER] %S\n", __FUNCTION__)
 #define DPF_EXIT()  wprintf(L"[EXIT] %S\n", __FUNCTION__)
+#define DPF(...)  wprintf(__VA_ARGS__x)
+#else
+#define DPF_ENTER()
+#define DPF_EXIT()
+#define DPF(...)  ((void)0)
+#endif
 
 int wmain(int argc, wchar_t** argv)
 {
@@ -74,7 +81,7 @@ int wmain(int argc, wchar_t** argv)
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr))
     {
-        wprintf(L"CoInitializeEx failed: 0x%08lx\n", hr);
+        DPF(L"CoInitializeEx failed: 0x%08lx\n", hr);
         DPF_EXIT();
         return 1;
     }
@@ -84,7 +91,7 @@ int wmain(int argc, wchar_t** argv)
                           IID_PPV_ARGS(&pEnumerator));
     if (FAILED(hr))
     {
-        wprintf(L"Failed to create device enumerator: 0x%08lx\n", hr);
+        DPF(L"Failed to create device enumerator: 0x%08lx\n", hr);
         CoUninitialize();
         DPF_EXIT();
         return 1;
@@ -94,7 +101,7 @@ int wmain(int argc, wchar_t** argv)
     hr = pEnumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pCollection);
     if (FAILED(hr))
     {
-        wprintf(L"EnumAudioEndpoints failed: 0x%08lx\n", hr);
+        DPF(L"EnumAudioEndpoints failed: 0x%08lx\n", hr);
         pEnumerator->Release();
         CoUninitialize();
         DPF_EXIT();
@@ -105,7 +112,7 @@ int wmain(int argc, wchar_t** argv)
     hr = pCollection->GetCount(&count);
     if (FAILED(hr))
     {
-        wprintf(L"GetCount failed: 0x%08lx\n", hr);
+        DPF(L"GetCount failed: 0x%08lx\n", hr);
         pCollection->Release();
         pEnumerator->Release();
         CoUninitialize();
@@ -177,7 +184,7 @@ int wmain(int argc, wchar_t** argv)
     hr = pRenderDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&pAudioClient);
     if (FAILED(hr))
     {
-        wprintf(L"Activate IAudioClient failed: 0x%08lx\n", hr);
+        DPF(L"Activate IAudioClient failed: 0x%08lx\n", hr);
         pRenderDevice->Release();
         CoUninitialize();
         DPF_EXIT();
@@ -188,7 +195,7 @@ int wmain(int argc, wchar_t** argv)
     hr = pAudioClient->GetMixFormat(&pwfx);
     if (FAILED(hr))
     {
-        wprintf(L"GetMixFormat failed: 0x%08lx\n", hr);
+        DPF(L"GetMixFormat failed: 0x%08lx\n", hr);
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
@@ -196,7 +203,7 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
-    wprintf(L"Render device format: %u channels, %u-bit, %u Hz\n",
+    DPF(L"Render device format: %u channels, %u-bit, %u Hz\n",
             pwfx->nChannels, pwfx->wBitsPerSample, pwfx->nSamplesPerSec);
 
     // We only needed the mix format for informational purposes.
@@ -224,7 +231,7 @@ int wmain(int argc, wchar_t** argv)
                                   nullptr);
     if (FAILED(hr))
     {
-        wprintf(L"Audio client initialize failed: 0x%08lx\n", hr);
+        DPF(L"Audio client initialize failed: 0x%08lx\n", hr);
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
@@ -239,7 +246,7 @@ int wmain(int argc, wchar_t** argv)
     hr = pAudioClient->GetService(__uuidof(IAudioRenderClient), (void**)&pRenderClient);
     if (FAILED(hr))
     {
-        wprintf(L"GetService IAudioRenderClient failed: 0x%08lx\n", hr);
+        DPF(L"GetService IAudioRenderClient failed: 0x%08lx\n", hr);
         CloseHandle(hAudioEvent);
         pAudioClient->Release();
         pRenderDevice->Release();
@@ -250,11 +257,11 @@ int wmain(int argc, wchar_t** argv)
 
     UINT32 bufferFrameCount = 0;
     pAudioClient->GetBufferSize(&bufferFrameCount);
-    wprintf(L"GetBufferSize: 0x%08lx\n", bufferFrameCount);
+    DPF(L"GetBufferSize: 0x%08lx\n", bufferFrameCount);
     hr = pAudioClient->Start();
     if (FAILED(hr))
     {
-        wprintf(L"Audio client start failed: 0x%08lx\n", hr);
+        DPF(L"Audio client start failed: 0x%08lx\n", hr);
         pRenderClient->Release();
         CloseHandle(hAudioEvent);
         pAudioClient->Release();
@@ -268,7 +275,7 @@ int wmain(int argc, wchar_t** argv)
                                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hDevice == INVALID_HANDLE_VALUE)
     {
-        wprintf(L"Failed to open device: %lu\n", GetLastError());
+        DPF(L"Failed to open device: %lu\n", GetLastError());
         DPF_EXIT();
         return 1;
     }
@@ -280,14 +287,14 @@ int wmain(int argc, wchar_t** argv)
                              FILE_ATTRIBUTE_NORMAL, nullptr);
         if (hFile == INVALID_HANDLE_VALUE)
         {
-            wprintf(L"Failed to open output file: %lu\n", GetLastError());
+            DPF(L"Failed to open output file: %lu\n", GetLastError());
             CloseHandle(hDevice);
             DPF_EXIT();
             return 1;
         }
     }
 
-    wprintf(L"Press F9 to stop recording...\n");
+    DPF(L"Press F9 to stop recording...\n");
 
     BYTE buffer[4096];
     DWORD bytesReturned = 0;
@@ -306,9 +313,9 @@ int wmain(int argc, wchar_t** argv)
 
         UINT32 padding = 0;
         pAudioClient->GetCurrentPadding(&padding);
-        wprintf(L"GetCurrentPadding: 0x%08lx\n", padding);
+        DPF(L"GetCurrentPadding: 0x%08lx\n", padding);
         UINT32 framesToWrite = bufferFrameCount - padding;
-        wprintf(L"padding=%u, framesToWrite=%u\n", padding, framesToWrite);
+        DPF(L"padding=%u, framesToWrite=%u\n", padding, framesToWrite);
 
         BYTE* pData = nullptr;
         if (FAILED(pRenderClient->GetBuffer(framesToWrite, &pData)))
@@ -324,7 +331,7 @@ int wmain(int argc, wchar_t** argv)
                              &bytesReturned,
                              nullptr))
         {
-            wprintf(L"DeviceIoControl failed: 0x%08lx\n", GetLastError());
+            DPF(L"DeviceIoControl failed: 0x%08lx\n", GetLastError());
             bytesReturned = 0;
         }
 
@@ -363,9 +370,9 @@ int wmain(int argc, wchar_t** argv)
     if (!wavPath.empty())
     {
         if (ConvertRawToWav(argv[1], wavPath.c_str(), &loopbackFormat))
-            wprintf(L"Converted %s to %s\n", argv[1], wavPath.c_str());
+            DPF(L"Converted %s to %s\n", argv[1], wavPath.c_str());
         else
-            wprintf(L"Failed to convert %s\n", argv[1]);
+            DPF(L"Failed to convert %s\n", argv[1]);
     }
 
     pAudioClient->Release();
