@@ -18,4 +18,6 @@ folkaurixsvc.exe [output.raw]
 When started, the program lists all active speaker devices and lets the
 user choose one. Audio from the SysVAD loopback driver is streamed to
 the selected device. If an output file is supplied, the same PCM data is
-also written to that file.
+also written to that file. Press **F9** during capture to stop the
+program. If an output file was specified, it will automatically be
+converted from raw PCM to a `.wav` file when capture stops.
