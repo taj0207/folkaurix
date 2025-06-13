@@ -124,8 +124,12 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     // ---- Translation ----
     TranslationServiceClient transClient(
         ::google::cloud::translate_v3::MakeTranslationServiceConnection());
-    auto transResp = transClient.TranslateText(
-        "projects/-/locations/global", {transcript}, targetLanguage, "en");
+    ::google::cloud::translation::v3::TranslateTextRequest request;
+    request.set_parent("projects/-/locations/global");
+    request.add_contents(transcript);
+    request.set_target_language_code(targetLanguage);
+    request.set_source_language_code("en");
+    auto transResp = transClient.TranslateText(request);
     if (!transResp) return false;
     std::string translatedText;
     if (!transResp->translations().empty()) {
