@@ -183,9 +183,16 @@ class CAdapterCommon :
         );
 
         STDMETHODIMP_(LONG)     MixerPeakMeterRead
-        ( 
+        (
             _In_  ULONG           Index,
             _In_  ULONG           Channel
+        );
+
+        STDMETHODIMP_(void)     MixerPeakMeterWrite
+        (
+            _In_  ULONG           Index,
+            _In_  ULONG           Channel,
+            _In_  LONG            Value
         );
 
         STDMETHODIMP_(NTSTATUS) WriteEtwEvent 
