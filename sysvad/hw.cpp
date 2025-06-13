@@ -284,7 +284,7 @@ Return Value:
 //=============================================================================
 LONG
 CSYSVADHW::GetMixerPeakMeter
-(   
+(
     _In_  ULONG                   ulNode,
     _In_  ULONG                   ulChannel
 )
@@ -315,6 +315,42 @@ Return Value:
 
     return 0;
 } // GetMixerVolume
+
+//=============================================================================
+void
+CSYSVADHW::SetMixerPeakMeter
+(
+    _In_  ULONG                   ulNode,
+    _In_  ULONG                   ulChannel,
+    _In_  LONG                    lPeak
+)
+/*++
+
+Routine Description:
+
+  Sets the HW (!) peak meter value for SYSVAD.
+
+Arguments:
+
+  ulNode - topology node id
+
+  ulChannel - which channel are we setting?
+
+  lPeak - new peak meter level
+
+Return Value:
+
+    void
+
+--*/
+{
+    UNREFERENCED_PARAMETER(ulChannel);
+
+    if (ulNode < MAX_TOPOLOGY_NODES)
+    {
+        m_PeakMeterControls[ulNode] = lPeak;
+    }
+} // SetMixerPeakMeter
 
 //=============================================================================
 #pragma code_seg("PAGE")

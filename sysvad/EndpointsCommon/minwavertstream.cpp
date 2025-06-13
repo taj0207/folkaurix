@@ -1561,7 +1561,8 @@ ByteDisplacement - # of bytes to process.
     while (ByteDisplacement > 0)
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
-            m_ToneGenerator.GenerateSine(m_pDmaBuffer + bufferOffset, runWrite);
+        m_ToneGenerator.GenerateSine(m_pDmaBuffer + bufferOffset, runWrite);
+        UpdatePeakMeter(m_pDmaBuffer + bufferOffset, runWrite);
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
     }
@@ -1594,11 +1595,79 @@ ByteDisplacement - # of bytes to process.
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
         m_SaveData.WriteData(m_pDmaBuffer + bufferOffset, runWrite);
         LoopbackBuffer_Write(m_pDmaBuffer + bufferOffset, runWrite);
+        UpdatePeakMeter(m_pDmaBuffer + bufferOffset, runWrite);
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
     }
 
     KeSetEvent(LoopbackBuffer_GetEvent(), IO_NO_INCREMENT, FALSE);
+}
+
+//=============================================================================
+VOID CMiniportWaveRTStream::UpdatePeakMeter(
+    _In_reads_bytes_(ByteCount) const BYTE* Buffer,
+    _In_ ULONG ByteCount)
+{
+    if (!m_plPeakMeter || !m_pWfExt)
+    {
+        return;
+    }
+
+    ULONG channels = m_pWfExt->Format.nChannels;
+    ULONG bits = m_pWfExt->Format.wBitsPerSample;
+    ULONG sampleBytes = bits / 8;
+    ULONG frameSize = sampleBytes * channels;
+    if (frameSize == 0)
+        return;
+
+    LONG max[8] = {0};
+    ULONG frames = ByteCount / frameSize;
+    const BYTE* p = Buffer;
+
+    for (ULONG f = 0; f < frames; ++f)
+    {
+        for (ULONG c = 0; c < channels && c < ARRAYSIZE(max); ++c)
+        {
+            LONG sample = 0;
+            const BYTE* s = p + c * sampleBytes;
+            if (bits == 8)
+            {
+                sample = (LONG)(*((const unsigned char*)s)) - 128;
+            }
+            else if (bits == 16)
+            {
+                sample = *(const short*)s;
+            }
+            else if (bits == 24)
+            {
+                sample = (((const char*)s)[0] | ((const char*)s)[1] << 8 | ((const char*)s)[2] << 16);
+                if (sample & 0x800000)
+                    sample |= ~0xFFFFFF;
+            }
+            else if (bits == 32)
+            {
+                sample = *(const LONG*)s;
+            }
+
+            LONG absSample = (sample >= 0) ? sample : -sample;
+            if (absSample > max[c])
+                max[c] = absSample;
+        }
+        p += frameSize;
+    }
+
+    LONG sampleMax = (bits == 8) ? 127 : ((1 << (bits - 1)) - 1);
+
+    PADAPTERCOMMON adapter = m_pMiniport->GetAdapterCommObj();
+    for (ULONG c = 0; c < channels && c < ARRAYSIZE(max); ++c)
+    {
+        LONG val = (LONG)(((LONGLONG)max[c] * PEAKMETER_SIGNED_MAXIMUM) / sampleMax);
+        m_plPeakMeter[c] = val;
+        if (adapter)
+        {
+            adapter->MixerPeakMeterWrite(KSNODE_TOPO_PEAKMETER, c, val);
+        }
+    }
 }
 
 //=============================================================================

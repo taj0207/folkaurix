@@ -290,6 +290,11 @@ private:
     (
         _In_ ULONG ByteDisplacement
     );
+
+    VOID UpdatePeakMeter(
+        _In_reads_bytes_(ByteCount) const BYTE* Buffer,
+        _In_ ULONG ByteCount
+    );
     
     VOID UpdatePosition
     (

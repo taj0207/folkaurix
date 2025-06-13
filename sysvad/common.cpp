@@ -1439,7 +1439,7 @@ Return Value:
 #pragma code_seg()
 STDMETHODIMP_(LONG)
 CAdapterCommon::MixerPeakMeterRead
-( 
+(
     _In_  ULONG                   Index,
     _In_  ULONG                   Channel
 )
@@ -1468,6 +1468,41 @@ Return Value:
 
     return 0;
 } // MixerVolumeRead
+
+//=============================================================================
+#pragma code_seg()
+STDMETHODIMP_(void)
+CAdapterCommon::MixerPeakMeterWrite
+(
+    _In_  ULONG                   Index,
+    _In_  ULONG                   Channel,
+    _In_  LONG                    Value
+)
+/*++
+
+Routine Description:
+
+  Store the new peak meter value in mixer register array.
+
+Arguments:
+
+  Index - node id
+
+  Channel - which channel
+
+  Value - new peak meter level
+
+Return Value:
+
+    void
+
+--*/
+{
+    if (m_pHW)
+    {
+        m_pHW->SetMixerPeakMeter(Index, Channel, Value);
+    }
+} // MixerPeakMeterWrite
 
 //=============================================================================
 #pragma code_seg()

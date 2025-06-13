@@ -1002,15 +1002,14 @@ NTSTATUS CMiniportWaveRT::GetChannelPeakMeter(_In_  UINT32 _uiChannel, _Out_  LO
         return STATUS_INVALID_PARAMETER;
     }
 
-    if (m_ulSystemAllocated + m_ulOffloadAllocated > 0)
+    if (m_ulSystemAllocated + m_ulOffloadAllocated > 0 && _uiChannel < m_DeviceMaxChannels)
     {
-        *_plPeakMeter = PEAKMETER_NORMALIZE_IN_RANGE(PEAKMETER_SIGNED_MAXIMUM / 2);
+        *_plPeakMeter = m_plPeakMeter[_uiChannel];
     }
     else
     {
         *_plPeakMeter = 0;
     }
-    //*_plPeakMeter = m_plPeakMeter[lChannel];
 
     DPF_EXIT();
     return STATUS_SUCCESS;
