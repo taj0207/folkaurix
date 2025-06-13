@@ -22,3 +22,5 @@ the selected device. If an output file is supplied, the same PCM data is
 also written to that file. Press **F9** during capture to stop the
 program. If an output file was specified, it will automatically be
 converted from raw PCM to a `.wav` file when capture stops.
+The WAV header is now written using the driver stream's fixed
+format (48 kHz, 16‑bit stereo) so it can be played directly.

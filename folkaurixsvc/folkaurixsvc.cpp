@@ -198,6 +198,18 @@ int wmain(int argc, wchar_t** argv)
     wprintf(L"Render device format: %u channels, %u-bit, %u Hz\n",
             pwfx->nChannels, pwfx->wBitsPerSample, pwfx->nSamplesPerSec);
 
+    // SysVAD loopback streams audio in a fixed 2ch/16-bit/48kHz format.
+    WAVEFORMATEX loopbackFormat = {};
+    loopbackFormat.wFormatTag = WAVE_FORMAT_PCM;
+    loopbackFormat.nChannels = 2;
+    loopbackFormat.nSamplesPerSec = 48000;
+    loopbackFormat.wBitsPerSample = 16;
+    loopbackFormat.nBlockAlign =
+        loopbackFormat.nChannels * loopbackFormat.wBitsPerSample / 8;
+    loopbackFormat.nAvgBytesPerSec =
+        loopbackFormat.nSamplesPerSec * loopbackFormat.nBlockAlign;
+    loopbackFormat.cbSize = 0;
+
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration, 0, pwfx, nullptr);
@@ -344,7 +356,7 @@ int wmain(int argc, wchar_t** argv)
 
     if (!wavPath.empty())
     {
-        if (ConvertRawToWav(argv[1], wavPath.c_str(), pwfx))
+        if (ConvertRawToWav(argv[1], wavPath.c_str(), &loopbackFormat))
             wprintf(L"Converted %s to %s\n", argv[1], wavPath.c_str());
         else
             wprintf(L"Failed to convert %s\n", argv[1]);
