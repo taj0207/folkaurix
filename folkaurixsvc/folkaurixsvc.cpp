@@ -3,6 +3,73 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <functiondiscoverykeys_devpkey.h>
+#include <string>
+
+#include <string.h>
+
+bool ConvertRawToWav(const wchar_t* rawPath,
+                     const wchar_t* wavPath,
+                     const WAVEFORMATEX* pwfx)
+{
+    HANDLE hIn = CreateFileW(rawPath, GENERIC_READ, FILE_SHARE_READ, nullptr,
+                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hIn == INVALID_HANDLE_VALUE)
+        return false;
+
+    DWORD dataSize = GetFileSize(hIn, nullptr);
+    if (dataSize == INVALID_FILE_SIZE)
+    {
+        CloseHandle(hIn);
+        return false;
+    }
+
+    HANDLE hOut = CreateFileW(wavPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hOut == INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(hIn);
+        return false;
+    }
+
+    DWORD written = 0;
+    DWORD riff = 'FFIR';
+    DWORD wave = 'EVAW';
+    DWORD fmt = ' tmf';
+    DWORD data = 'atad';
+    DWORD chunkSize = 36 + dataSize;
+    DWORD subchunk1Size = 16;
+    WORD audioFormat = pwfx->wFormatTag;
+    WORD numChannels = pwfx->nChannels;
+    DWORD sampleRate = pwfx->nSamplesPerSec;
+    DWORD byteRate = pwfx->nSamplesPerSec * pwfx->nBlockAlign;
+    WORD blockAlign = pwfx->nBlockAlign;
+    WORD bitsPerSample = pwfx->wBitsPerSample;
+
+    WriteFile(hOut, &riff, 4, &written, nullptr);
+    WriteFile(hOut, &chunkSize, 4, &written, nullptr);
+    WriteFile(hOut, &wave, 4, &written, nullptr);
+    WriteFile(hOut, &fmt, 4, &written, nullptr);
+    WriteFile(hOut, &subchunk1Size, 4, &written, nullptr);
+    WriteFile(hOut, &audioFormat, 2, &written, nullptr);
+    WriteFile(hOut, &numChannels, 2, &written, nullptr);
+    WriteFile(hOut, &sampleRate, 4, &written, nullptr);
+    WriteFile(hOut, &byteRate, 4, &written, nullptr);
+    WriteFile(hOut, &blockAlign, 2, &written, nullptr);
+    WriteFile(hOut, &bitsPerSample, 2, &written, nullptr);
+    WriteFile(hOut, &data, 4, &written, nullptr);
+    WriteFile(hOut, &dataSize, 4, &written, nullptr);
+
+    BYTE buffer[4096];
+    DWORD read = 0;
+    while (ReadFile(hIn, buffer, sizeof(buffer), &read, nullptr) && read > 0)
+    {
+        WriteFile(hOut, buffer, read, &written, nullptr);
+    }
+
+    CloseHandle(hOut);
+    CloseHandle(hIn);
+    return true;
+}
 
 #ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
 #define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
@@ -213,12 +280,22 @@ int wmain(int argc, wchar_t** argv)
         }
     }
 
+    wprintf(L"Press F9 to stop recording...\n");
+
     BYTE buffer[4096];
     DWORD bytesReturned = 0;
 
-    while (true)
+    bool stopRequested = false;
+    while (!stopRequested)
     {
-        WaitForSingleObject(hAudioEvent, INFINITE);
+        WaitForSingleObject(hAudioEvent, 100);
+        if (GetAsyncKeyState(VK_F9) & 0x8000)
+        {
+            stopRequested = true;
+            continue;
+        }
+        if (stopRequested)
+            break;
 
         UINT32 padding = 0;
         pAudioClient->GetCurrentPadding(&padding);
@@ -259,13 +336,31 @@ int wmain(int argc, wchar_t** argv)
         pRenderClient->ReleaseBuffer(framesToWrite, 0);
     }
 
+    std::wstring wavPath;
     if (hFile != INVALID_HANDLE_VALUE)
+    {
         CloseHandle(hFile);
+        wavPath = argv[1];
+        size_t pos = wavPath.find_last_of(L'.');
+        if (pos == std::wstring::npos)
+            wavPath += L".wav";
+        else
+            wavPath.replace(pos, wavPath.length() - pos, L".wav");
+    }
     CloseHandle(hDevice);
 
     pAudioClient->Stop();
     pRenderClient->Release();
     CloseHandle(hAudioEvent);
+
+    if (!wavPath.empty())
+    {
+        if (ConvertRawToWav(argv[1], wavPath.c_str(), pwfx))
+            wprintf(L"Converted %s to %s\n", argv[1], wavPath.c_str());
+        else
+            wprintf(L"Failed to convert %s\n", argv[1]);
+    }
+
     CoTaskMemFree(pwfx);
     pAudioClient->Release();
     pRenderDevice->Release();
