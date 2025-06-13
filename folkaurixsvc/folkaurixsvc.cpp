@@ -1,3 +1,6 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <stdio.h>
 #include <mmdeviceapi.h>
@@ -14,6 +17,7 @@
 #include <google/cloud/text_to_speech/text_to_speech_client.h>
 #include <fstream>
 #include <vector>
+#include <algorithm>
 
 bool ConvertRawToWav(const wchar_t* rawPath,
                      const wchar_t* wavPath,
@@ -480,12 +484,13 @@ int wmain(int argc, wchar_t** argv)
             break;
 
         DWORD bytesNeeded = framesToWrite * loopbackFormat.nBlockAlign;
+        DWORD queryBytes = std::min<DWORD>(static_cast<DWORD>(sizeof(buffer)), bytesNeeded);
         if (!DeviceIoControl(hDevice,
                              IOCTL_SYSVAD_GET_LOOPBACK_DATA,
                              nullptr,
                              0,
                              buffer,
-                             min(sizeof(buffer), bytesNeeded),
+                             queryBytes,
                              &bytesReturned,
                              nullptr))
         {
@@ -493,8 +498,7 @@ int wmain(int argc, wchar_t** argv)
             bytesReturned = 0;
         }
 
-
-        DWORD copyBytes = min(bytesReturned, bytesNeeded);
+        DWORD copyBytes = std::min(bytesReturned, bytesNeeded);
         CopyMemory(pData, buffer, copyBytes);
         if (copyBytes < bytesNeeded)
             ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
