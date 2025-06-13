@@ -32,10 +32,11 @@ bool ConvertRawToWav(const wchar_t* rawPath,
     }
 
     DWORD written = 0;
-    DWORD riff = 'FFIR';
-    DWORD wave = 'EVAW';
-    DWORD fmt = ' tmf';
-    DWORD data = 'atad';
+    // Write a standard WAV header using little-endian FOURCC codes.
+    DWORD riff = 'RIFF';
+    DWORD wave = 'WAVE';
+    DWORD fmt = 'fmt ';
+    DWORD data = 'data';
     DWORD subchunk1Size = sizeof(WAVEFORMATEX) + pwfx->cbSize;
     DWORD chunkSize = 20 + subchunk1Size + dataSize;
 
@@ -198,6 +199,10 @@ int wmain(int argc, wchar_t** argv)
     wprintf(L"Render device format: %u channels, %u-bit, %u Hz\n",
             pwfx->nChannels, pwfx->wBitsPerSample, pwfx->nSamplesPerSec);
 
+    // We only needed the mix format for informational purposes.
+    CoTaskMemFree(pwfx);
+    pwfx = nullptr;
+
     // SysVAD loopback streams audio in a fixed 2ch/16-bit/48kHz format.
     WAVEFORMATEX loopbackFormat = {};
     loopbackFormat.wFormatTag = WAVE_FORMAT_PCM;
@@ -211,12 +216,15 @@ int wmain(int argc, wchar_t** argv)
     loopbackFormat.cbSize = 0;
 
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
-    hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-                                  bufferDuration, 0, pwfx, nullptr);
+    hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
+                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+                                  bufferDuration,
+                                  0,
+                                  &loopbackFormat,
+                                  nullptr);
     if (FAILED(hr))
     {
         wprintf(L"Audio client initialize failed: 0x%08lx\n", hr);
-        CoTaskMemFree(pwfx);
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
@@ -233,7 +241,6 @@ int wmain(int argc, wchar_t** argv)
     {
         wprintf(L"GetService IAudioRenderClient failed: 0x%08lx\n", hr);
         CloseHandle(hAudioEvent);
-        CoTaskMemFree(pwfx);
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
@@ -250,7 +257,6 @@ int wmain(int argc, wchar_t** argv)
         wprintf(L"Audio client start failed: 0x%08lx\n", hr);
         pRenderClient->Release();
         CloseHandle(hAudioEvent);
-        CoTaskMemFree(pwfx);
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
@@ -308,7 +314,7 @@ int wmain(int argc, wchar_t** argv)
         if (FAILED(pRenderClient->GetBuffer(framesToWrite, &pData)))
             break;
 
-        DWORD bytesNeeded = framesToWrite * pwfx->nBlockAlign;
+        DWORD bytesNeeded = framesToWrite * loopbackFormat.nBlockAlign;
         if (!DeviceIoControl(hDevice,
                              IOCTL_SYSVAD_GET_LOOPBACK_DATA,
                              nullptr,
@@ -362,7 +368,6 @@ int wmain(int argc, wchar_t** argv)
             wprintf(L"Failed to convert %s\n", argv[1]);
     }
 
-    CoTaskMemFree(pwfx);
     pAudioClient->Release();
     pRenderDevice->Release();
     CoUninitialize();
