@@ -16,7 +16,7 @@
 // dependencies when building)
 #include <google/cloud/speech/speech_client.h>
 #include <google/cloud/translate/translation_client.h>
-#include <google/cloud/text_to_speech/text_to_speech_client.h>
+#include <google/cloud/texttospeech/text_to_speech_client.h>
 #include <fstream>
 #include <vector>
 #include <algorithm>
