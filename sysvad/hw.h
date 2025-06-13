@@ -93,9 +93,16 @@ public:
     );
     
     LONG                        GetMixerPeakMeter
-    (   
+    (
         _In_  ULONG               ulNode,
         _In_  ULONG               ulChannel
+    );
+
+    void                        SetMixerPeakMeter
+    (
+        _In_  ULONG               ulNode,
+        _In_  ULONG               ulChannel,
+        _In_  LONG                lPeak
     );
 
 protected:

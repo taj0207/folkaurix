@@ -689,7 +689,14 @@ NTSTATUS CMiniportWaveRTStream::GetChannelPeakMeter(_In_  UINT32 _uiChannel, _Ou
     UNREFERENCED_PARAMETER(_uiChannel);
     DPF_ENTER();
 
-    *_plPeakMeter = PEAKMETER_NORMALIZE_IN_RANGE(PEAKMETER_SIGNED_MAXIMUM / 2);
+    if (_uiChannel < m_pWfExt->Format.nChannels)
+    {
+        *_plPeakMeter = m_plPeakMeter[_uiChannel];
+    }
+    else
+    {
+        *_plPeakMeter = 0;
+    }
 
     DPF_EXIT();
     return STATUS_SUCCESS;

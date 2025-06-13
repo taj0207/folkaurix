@@ -549,11 +549,19 @@ DECLARE_INTERFACE_(IAdapterCommon, IUnknown)
         _In_  LONG                Value 
     ) PURE;
     
-    STDMETHOD_(LONG,            MixerPeakMeterRead) 
-    ( 
+    STDMETHOD_(LONG,            MixerPeakMeterRead)
+    (
         THIS_
         _In_  ULONG               Index,
         _In_  ULONG               Channel
+    ) PURE;
+
+    STDMETHOD_(VOID,            MixerPeakMeterWrite)
+    (
+        THIS_
+        _In_  ULONG               Index,
+        _In_  ULONG               Channel,
+        _In_  LONG                Value
     ) PURE;
 
     STDMETHOD_(VOID,            MixerReset) 
