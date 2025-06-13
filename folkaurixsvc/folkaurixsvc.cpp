@@ -36,26 +36,15 @@ bool ConvertRawToWav(const wchar_t* rawPath,
     DWORD wave = 'EVAW';
     DWORD fmt = ' tmf';
     DWORD data = 'atad';
-    DWORD chunkSize = 36 + dataSize;
-    DWORD subchunk1Size = 16;
-    WORD audioFormat = pwfx->wFormatTag;
-    WORD numChannels = pwfx->nChannels;
-    DWORD sampleRate = pwfx->nSamplesPerSec;
-    DWORD byteRate = pwfx->nSamplesPerSec * pwfx->nBlockAlign;
-    WORD blockAlign = pwfx->nBlockAlign;
-    WORD bitsPerSample = pwfx->wBitsPerSample;
+    DWORD subchunk1Size = sizeof(WAVEFORMATEX) + pwfx->cbSize;
+    DWORD chunkSize = 20 + subchunk1Size + dataSize;
 
     WriteFile(hOut, &riff, 4, &written, nullptr);
     WriteFile(hOut, &chunkSize, 4, &written, nullptr);
     WriteFile(hOut, &wave, 4, &written, nullptr);
     WriteFile(hOut, &fmt, 4, &written, nullptr);
     WriteFile(hOut, &subchunk1Size, 4, &written, nullptr);
-    WriteFile(hOut, &audioFormat, 2, &written, nullptr);
-    WriteFile(hOut, &numChannels, 2, &written, nullptr);
-    WriteFile(hOut, &sampleRate, 4, &written, nullptr);
-    WriteFile(hOut, &byteRate, 4, &written, nullptr);
-    WriteFile(hOut, &blockAlign, 2, &written, nullptr);
-    WriteFile(hOut, &bitsPerSample, 2, &written, nullptr);
+    WriteFile(hOut, pwfx, subchunk1Size, &written, nullptr);
     WriteFile(hOut, &data, 4, &written, nullptr);
     WriteFile(hOut, &dataSize, 4, &written, nullptr);
 
