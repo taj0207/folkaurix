@@ -43,6 +43,8 @@
 // Simple thread-safe queues for streaming audio to Google Cloud and
 // feeding synthesized audio back to the render device.
 static std::queue<std::vector<char>> g_captureQueue;
+static std::queue<std::string> g_transcriptQueue;
+static std::queue<std::string> g_translationQueue;
 static std::queue<std::vector<char>> g_ttsQueue;
 static std::mutex g_mutex;
 static std::condition_variable g_cv;
@@ -254,9 +256,93 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     return true;
 }
 
+// Thread that performs translation of transcripts pulled from g_transcriptQueue
+// and pushes the translated text to g_translationQueue.
+void TranslationThread(const std::string& targetLang)
+{
+    using ::google::cloud::translate_v3::TranslationServiceClient;
+    using ::google::cloud::translation::v3::TranslateTextRequest;
+
+    DPF_ENTER();
+    TranslationServiceClient client(
+        ::google::cloud::translate_v3::MakeTranslationServiceConnection());
+
+    while (true) {
+        std::string transcript;
+        {
+            std::unique_lock<std::mutex> lk(g_mutex);
+            g_cv.wait(lk, [] { return !g_transcriptQueue.empty() || g_stop; });
+            if (g_stop && g_transcriptQueue.empty()) break;
+            transcript = std::move(g_transcriptQueue.front());
+            g_transcriptQueue.pop();
+        }
+
+        TranslateTextRequest req;
+        req.set_parent("projects/-/locations/global");
+        req.add_contents(transcript);
+        req.set_target_language_code(targetLang);
+        auto resp = client.TranslateText(req);
+        if (!resp) continue;
+        std::string translated;
+        if (!resp->translations().empty())
+            translated = resp->translations(0).translated_text();
+
+        {
+            std::lock_guard<std::mutex> lk(g_mutex);
+            g_translationQueue.push(std::move(translated));
+        }
+        g_cv.notify_one();
+    }
+    DPF_EXIT();
+}
+
+// Thread that performs text-to-speech synthesis on translated text pulled from
+// g_translationQueue and places the resulting PCM data into g_ttsQueue.
+void TtsThread(const std::string& targetLang)
+{
+    using ::google::cloud::texttospeech::TextToSpeechClient;
+    using ::google::cloud::texttospeech::v1::SynthesisInput;
+    using ::google::cloud::texttospeech::v1::VoiceSelectionParams;
+    using ::google::cloud::texttospeech::v1::AudioConfig;
+
+    DPF_ENTER();
+    TextToSpeechClient client(
+        ::google::cloud::texttospeech::MakeTextToSpeechConnection());
+
+    while (true) {
+        std::string text;
+        {
+            std::unique_lock<std::mutex> lk(g_mutex);
+            g_cv.wait(lk, [] { return !g_translationQueue.empty() || g_stop; });
+            if (g_stop && g_translationQueue.empty()) break;
+            text = std::move(g_translationQueue.front());
+            g_translationQueue.pop();
+        }
+
+        SynthesisInput input;
+        input.set_text(text);
+        VoiceSelectionParams voice;
+        voice.set_language_code(targetLang);
+        AudioConfig cfg;
+        cfg.set_audio_encoding(
+            ::google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
+        cfg.set_sample_rate_hertz(48000);
+        auto ttsResp = client.SynthesizeSpeech(input, voice, cfg);
+        if (!ttsResp) continue;
+        std::vector<char> pcm(ttsResp->audio_content().begin(),
+                             ttsResp->audio_content().end());
+        {
+            std::lock_guard<std::mutex> lk(g_mutex);
+            g_ttsQueue.push(std::move(pcm));
+        }
+        g_cv.notify_one();
+    }
+    DPF_EXIT();
+}
+
 // Real-time pipeline. Captured audio blocks are streamed to Google Cloud
-// Speech-to-Text. Final transcripts are translated and synthesized back to
-// audio. The resulting PCM blocks are queued for playback on the render device.
+// Speech-to-Text. Final transcripts are sent to a translation thread and the
+// resulting translations are synthesized in a separate text-to-speech thread.
 bool StartRealtimePipeline(const std::string& targetLang)
 {
     DPF_ENTER();
@@ -265,12 +351,6 @@ bool StartRealtimePipeline(const std::string& targetLang)
     using ::google::cloud::speech::v1::StreamingRecognitionConfig;
     using ::google::cloud::speech::v1::StreamingRecognizeRequest;
     using ::google::cloud::speech::v1::StreamingRecognizeResponse;
-    using ::google::cloud::translate_v3::TranslationServiceClient;
-    using ::google::cloud::translation::v3::TranslateTextRequest;
-    using ::google::cloud::texttospeech::TextToSpeechClient;
-    using ::google::cloud::texttospeech::v1::SynthesisInput;
-    using ::google::cloud::texttospeech::v1::VoiceSelectionParams;
-    using ::google::cloud::texttospeech::v1::AudioConfig;
 
     SpeechClient speechClient(
         ::google::cloud::speech::MakeSpeechConnection());
@@ -320,11 +400,9 @@ bool StartRealtimePipeline(const std::string& targetLang)
         DPF(L"Writer to speech-to-text exit\n");
         streamer->WritesDone();
     });
-    DPF(L"Translate loop is on going\n"); 
-    TranslationServiceClient transClient(
-        ::google::cloud::translate_v3::MakeTranslationServiceConnection());
-    TextToSpeechClient ttsClient(
-        ::google::cloud::texttospeech::MakeTextToSpeechConnection());
+    DPF(L"Translate loop is on going\n");
+    std::thread translator(TranslationThread, targetLang);
+    std::thread tts(TtsThread, targetLang);
 
     // google-cloud-cpp v2.37+ changed AsyncStreamingReadWriteRpc::Read() to
     // return a future holding an optional response.  Adapt the synchronous
@@ -339,31 +417,9 @@ bool StartRealtimePipeline(const std::string& targetLang)
             if (!result.alternatives().empty() && result.is_final()) {
                 std::string transcript = result.alternatives(0).transcript();
                 printf("%s\n", transcript.c_str());
-                TranslateTextRequest tReq;
-                tReq.set_parent("projects/-/locations/global");
-                tReq.add_contents(transcript);
-                tReq.set_target_language_code(targetLang);
-                auto tResp = transClient.TranslateText(tReq);
-                if (!tResp) continue;
-                std::string translated;
-                if (!tResp->translations().empty())
-                    translated = tResp->translations(0).translated_text();
-                printf("%s\n", translated.c_str());
-                SynthesisInput sInput;
-                sInput.set_text(translated);
-                VoiceSelectionParams voice;
-                voice.set_language_code(targetLang);
-                AudioConfig cfg;
-                cfg.set_audio_encoding(
-                    ::google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
-                cfg.set_sample_rate_hertz(48000);
-                auto ttsResp = ttsClient.SynthesizeSpeech(sInput, voice, cfg);
-                if (!ttsResp) continue;
-                std::vector<char> pcm(ttsResp->audio_content().begin(),
-                                     ttsResp->audio_content().end());
                 {
                     std::lock_guard<std::mutex> lk(g_mutex);
-                    g_ttsQueue.push(std::move(pcm));
+                    g_transcriptQueue.push(std::move(transcript));
                 }
                 g_cv.notify_one();
             }
@@ -372,6 +428,9 @@ bool StartRealtimePipeline(const std::string& targetLang)
     }
 
     writer.join();
+    g_cv.notify_all();
+    translator.join();
+    tts.join();
     DPF_EXIT();
     return true;
 }
