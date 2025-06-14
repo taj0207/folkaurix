@@ -22,3 +22,32 @@ python play_audio.py <audio-file> --device <device-name-or-id>
 ```
 
 Use `python -m sounddevice` to list available devices.
+
+## Real-time Speech Translation Example
+
+The `realtime_google_pipeline.cpp` source demonstrates how to capture live PCM
+data from the default input device, send it to Google Cloud for speech
+recognition, translate the recognised text and synthesize the translation back
+to audio in real time. The generated audio is played immediately.
+
+Additional requirements:
+
+- PortAudio
+- Google Cloud C++ client libraries (`speech`, `translate`, `texttospeech`)
+
+Build and run the example (simplified command):
+
+```sh
+g++ realtime_google_pipeline.cpp -o realtime_pipeline \
+    `pkg-config --cflags --libs portaudio-2.0` \
+    -lgoogle_cloud_cpp_speech -lgoogle_cloud_cpp_translate \
+    -lgoogle_cloud_cpp_texttospeech
+./realtime_pipeline [--lang <code>] [-list] [-?]
+```
+
+Options:
+* `--lang <code>`  Target translation language (default `es`)
+* `-list`           List supported language codes
+* `-?` or `--help`  Show help
+
+Press `Ctrl+C` to stop the program.
