@@ -109,6 +109,13 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     recConfig.set_encoding(RecognitionConfig::LINEAR16);
     recConfig.set_sample_rate_hertz(48000);
     recConfig.set_language_code("en-US");
+    // Enable automatic language detection with a set of defaults.
+    // The recognizer will pick the best match among these languages.
+    recConfig.add_alternative_language_codes("es-ES"); // Spanish
+    recConfig.add_alternative_language_codes("fr-FR"); // French
+    recConfig.add_alternative_language_codes("de-DE"); // German
+    recConfig.add_alternative_language_codes("ja-JP"); // Japanese
+    recConfig.add_alternative_language_codes("cmn-Hans-CN"); // Mandarin
     RecognitionAudio audio;
     audio.set_content(std::string(wavData.begin(), wavData.end()));
 
@@ -128,7 +135,6 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     request.set_parent("projects/-/locations/global");
     request.add_contents(transcript);
     request.set_target_language_code(targetLanguage);
-    request.set_source_language_code("en");
     auto transResp = transClient.TranslateText(request);
     if (!transResp) return false;
     std::string translatedText;

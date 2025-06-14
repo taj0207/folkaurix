@@ -24,6 +24,8 @@ If a file was specified, it is automatically converted from raw PCM to a
 sent to Google Cloud for speech recognition, translation and
 text‑to‑speech synthesis. The synthesized audio is played back to the
 previously selected render device. `-l` allows specifying the ISO
-language code used for translation (default `zh`). The WAV header is now
-written using the driver stream's fixed format (48 kHz, 16‑bit stereo) so
-it can be played directly.
+language code used for translation (default `zh`). The speech recognizer
+now attempts to automatically detect the input language. By default it
+listens for English, Spanish, French, German, Japanese and Mandarin.
+The WAV header is written using the driver stream's fixed format
+(48 kHz, 16‑bit stereo) so it can be played directly.
