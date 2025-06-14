@@ -25,6 +25,21 @@
 #include <vector>
 #include <algorithm>
 
+
+#ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
+#define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
+#endif
+
+#ifdef _DEBUG
+#define DPF_ENTER() wprintf(L"[ENTER] %S\n", __FUNCTION__)
+#define DPF_EXIT()  wprintf(L"[EXIT] %S\n", __FUNCTION__)
+#define DPF(...)  wprintf(__VA_ARGS__)
+#else
+#define DPF_ENTER()
+#define DPF_EXIT()
+#define DPF(...)  ((void)0)
+#endif
+
 // Simple thread-safe queues for streaming audio to Google Cloud and
 // feeding synthesized audio back to the render device.
 static std::queue<std::vector<char>> g_captureQueue;
@@ -244,6 +259,7 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
 // audio. The resulting PCM blocks are queued for playback on the render device.
 bool StartRealtimePipeline(const std::string& targetLang)
 {
+    DPF_ENTER();
     using ::google::cloud::speech::SpeechClient;
     using ::google::cloud::speech::v1::RecognitionConfig;
     using ::google::cloud::speech::v1::StreamingRecognitionConfig;
@@ -274,6 +290,14 @@ bool StartRealtimePipeline(const std::string& targetLang)
     // configuration as the first message in the writer thread below.
     auto streamer = speechClient.AsyncStreamingRecognize();
 
+    // 【關鍵步驟】啟動串流，並檢查是否成功
+    if (!streamer->Start().get()) {
+        // 如果 Start() 回傳 false，表示串流建立失敗，必須在此處理錯誤並返回
+        std::cerr << "串流啟動失敗 (Stream failed to start)" << std::endl;
+        // 在這裡加上錯誤處理，例如 return 1;
+        return 1;
+    }
+
     std::thread writer([&] {
         StreamingRecognizeRequest req;
         *req.mutable_streaming_config() = streamCfg;
@@ -288,12 +312,15 @@ bool StartRealtimePipeline(const std::string& targetLang)
                 g_captureQueue.pop();
             }
             StreamingRecognizeRequest dataReq;
+           // DPF(L"Writer to speech-to-text: send block to gcloud\n");
             dataReq.set_audio_content(std::string(block.begin(), block.end()));
             streamer->Write(dataReq, grpc::WriteOptions{});
+            Sleep(1);
         }
+        DPF(L"Writer to speech-to-text exit\n");
         streamer->WritesDone();
     });
-
+    DPF(L"Translate loop is on going\n"); 
     TranslationServiceClient transClient(
         ::google::cloud::translate_v3::MakeTranslationServiceConnection());
     TextToSpeechClient ttsClient(
@@ -303,12 +330,15 @@ bool StartRealtimePipeline(const std::string& targetLang)
     // return a future holding an optional response.  Adapt the synchronous
     // loop accordingly.
     while (true) {
+        DPF(L"stream.read\n");
         auto resp_opt = streamer->Read().get();
         if (!resp_opt) break;
+        DPF(L"stream.read finish\n");
         StreamingRecognizeResponse const& resp = *resp_opt;
         for (auto const& result : resp.results()) {
             if (!result.alternatives().empty() && result.is_final()) {
                 std::string transcript = result.alternatives(0).transcript();
+                printf("%s\n", transcript.c_str());
                 TranslateTextRequest tReq;
                 tReq.set_parent("projects/-/locations/global");
                 tReq.add_contents(transcript);
@@ -318,6 +348,7 @@ bool StartRealtimePipeline(const std::string& targetLang)
                 std::string translated;
                 if (!tResp->translations().empty())
                     translated = tResp->translations(0).translated_text();
+                printf("%s\n", translated.c_str());
                 SynthesisInput sInput;
                 sInput.set_text(translated);
                 VoiceSelectionParams voice;
@@ -341,6 +372,7 @@ bool StartRealtimePipeline(const std::string& targetLang)
     }
 
     writer.join();
+    DPF_EXIT();
     return true;
 }
 
@@ -348,6 +380,7 @@ bool StartRealtimePipeline(const std::string& targetLang)
 void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
                     const WAVEFORMATEX& fmt)
 {
+    DPF_ENTER();
     UINT32 bufferFrames = 0;
     pClient->GetBufferSize(&bufferFrames);
     pClient->Start();
@@ -393,21 +426,8 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
         }
     }
     pClient->Stop();
+    DPF_EXIT();
 }
-
-#ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
-#define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
-#endif
-
-#ifdef _DEBUG
-#define DPF_ENTER() wprintf(L"[ENTER] %S\n", __FUNCTION__)
-#define DPF_EXIT()  wprintf(L"[EXIT] %S\n", __FUNCTION__)
-#define DPF(...)  wprintf(__VA_ARGS__x)
-#else
-#define DPF_ENTER()
-#define DPF_EXIT()
-#define DPF(...)  ((void)0)
-#endif
 
 int wmain(int argc, wchar_t** argv)
 {
