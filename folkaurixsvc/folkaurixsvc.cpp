@@ -300,16 +300,18 @@ void TranslationThread(const std::string& targetLang)
 // g_translationQueue and places the resulting PCM data into g_ttsQueue.
 void TtsThread(const std::string& targetLang)
 {
-    using ::google::cloud::texttospeech::TextToSpeechClient;
-    using ::google::cloud::texttospeech::v1::StreamingSynthesizeSpeechRequest;
-    using ::google::cloud::texttospeech::v1::StreamingSynthesizeSpeechResponse;
-    using ::google::cloud::texttospeech::v1::SynthesisInput;
-    using ::google::cloud::texttospeech::v1::VoiceSelectionParams;
-    using ::google::cloud::texttospeech::v1::AudioConfig;
+    // Use the correct namespaces for clarity
+    using google::cloud::texttospeech::TextToSpeechClient;
+    using google::cloud::texttospeech::v1::AudioConfig;
+    using google::cloud::texttospeech::v1::SynthesisInput;
+    using google::cloud::texttospeech::v1::VoiceSelectionParams;
+    // Correctly using the streaming-specific request and response types
+    using google::cloud::texttospeech::v1::StreamingSynthesizeRequest;
+    using google::cloud::texttospeech::v1::StreamingSynthesizeResponse;
 
     DPF_ENTER();
     TextToSpeechClient client(
-        ::google::cloud::texttospeech::MakeTextToSpeechConnection());
+        google::cloud::texttospeech::MakeTextToSpeechConnection());
 
     while (true) {
         std::string text;
@@ -321,38 +323,39 @@ void TtsThread(const std::string& targetLang)
             g_translationQueue.pop();
         }
 
-        auto streamer = client.AsyncStreamingSynthesizeSpeech();
-        if (!streamer->Start().get()) {
-            std::cerr << "Streaming TTS start failed" << std::endl;
-            continue;
-        }
+        // 1. Create a single StreamingSynthesizeRequest object.
+        StreamingSynthesizeRequest request;
 
-        StreamingSynthesizeSpeechRequest cfgReq;
-        auto* cfg = cfgReq.mutable_synthesis_config();
-        cfg->mutable_voice()->set_language_code(targetLang);
-        cfg->mutable_audio_config()->set_audio_encoding(
-            ::google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
-        cfg->mutable_audio_config()->set_sample_rate_hertz(48000);
-        if (!streamer->Write(cfgReq, grpc::WriteOptions{}).get()) {
-            streamer->Cancel();
-            continue;
-        }
+        // 2. Populate its fields directly.
+        request.mutable_input()->set_text(text);
+        request.mutable_voice()->set_language_code(targetLang);
+        request.mutable_audio_config()->set_audio_encoding(
+            google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
+        request.mutable_audio_config()->set_sample_rate_hertz(48000);
 
-        StreamingSynthesizeSpeechRequest inputReq;
-        inputReq.set_text(text);
-        streamer->Write(inputReq, grpc::WriteOptions{}).get();
-        streamer->WritesDone();
+        // 3. Call StreamingSynthesize with the single request object.
+        // This returns a stream reader.
+        auto stream = client.StreamingSynthesize(request);
 
+        // 4. Loop to read the stream of responses.
         while (true) {
-            auto resp = streamer->Read().get();
-            if (!resp) break;
-            std::vector<char> pcm(resp->audio_content().begin(),
-                                 resp->audio_content().end());
-            {
-                std::lock_guard<std::mutex> lk(g_mutex);
-                g_ttsQueue.push(std::move(pcm));
+            auto chunk_opt = stream->Read().get();
+
+            // End of stream
+            if (!chunk_opt) break;
+
+            // The object inside the optional is now the correct type
+            StreamingSynthesizeResponse const& response = *chunk_opt;
+
+            if (!response.audio_content().empty()) {
+                std::vector<char> pcm(response.audio_content().begin(),
+                                      response.audio_content().end());
+                {
+                    std::lock_guard<std::mutex> lk(g_mutex);
+                    g_ttsQueue.push(std::move(pcm));
+                }
+                g_cv.notify_one();
             }
-            g_cv.notify_one();
         }
     }
     DPF_EXIT();
