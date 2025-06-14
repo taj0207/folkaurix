@@ -299,8 +299,13 @@ bool StartRealtimePipeline(const std::string& targetLang)
     TextToSpeechClient ttsClient(
         ::google::cloud::texttospeech::MakeTextToSpeechConnection());
 
-    StreamingRecognizeResponse resp;
-    while (streamer->Read(resp)) {
+    // google-cloud-cpp v2.37+ changed AsyncStreamingReadWriteRpc::Read() to
+    // return a future holding an optional response.  Adapt the synchronous
+    // loop accordingly.
+    while (true) {
+        auto resp_opt = streamer->Read().get();
+        if (!resp_opt) break;
+        StreamingRecognizeResponse const& resp = *resp_opt;
         for (auto const& result : resp.results()) {
             if (!result.alternatives().empty() && result.is_final()) {
                 std::string transcript = result.alternatives(0).transcript();
