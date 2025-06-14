@@ -11,6 +11,10 @@
 #include <string>
 
 #include <string.h>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 // Google Cloud C++ client library headers (optional, may require additional
 // dependencies when building)
@@ -20,6 +24,14 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+
+// Simple thread-safe queues for streaming audio to Google Cloud and
+// feeding synthesized audio back to the render device.
+static std::queue<std::vector<char>> g_captureQueue;
+static std::queue<std::vector<char>> g_ttsQueue;
+static std::mutex g_mutex;
+static std::condition_variable g_cv;
+static bool g_stop = false;
 
 bool ConvertRawToWav(const wchar_t* rawPath,
                      const wchar_t* wavPath,
@@ -227,6 +239,152 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     return true;
 }
 
+// Real-time pipeline. Captured audio blocks are streamed to Google Cloud
+// Speech-to-Text. Final transcripts are translated and synthesized back to
+// audio. The resulting PCM blocks are queued for playback on the render device.
+bool StartRealtimePipeline(const std::string& targetLang)
+{
+    using ::google::cloud::speech::SpeechClient;
+    using ::google::cloud::speech::v1::RecognitionConfig;
+    using ::google::cloud::speech::v1::StreamingRecognitionConfig;
+    using ::google::cloud::speech::v1::StreamingRecognizeRequest;
+    using ::google::cloud::speech::v1::StreamingRecognizeResponse;
+    using ::google::cloud::translate_v3::TranslationServiceClient;
+    using ::google::cloud::translation::v3::TranslateTextRequest;
+    using ::google::cloud::texttospeech::TextToSpeechClient;
+    using ::google::cloud::texttospeech::v1::SynthesisInput;
+    using ::google::cloud::texttospeech::v1::VoiceSelectionParams;
+    using ::google::cloud::texttospeech::v1::AudioConfig;
+
+    SpeechClient speechClient(
+        ::google::cloud::speech::MakeSpeechConnection());
+    StreamingRecognitionConfig streamCfg;
+    auto* recCfg = streamCfg.mutable_config();
+    recCfg->set_encoding(RecognitionConfig::LINEAR16);
+    recCfg->set_sample_rate_hertz(48000);
+    recCfg->set_language_code("en-US");
+    recCfg->add_alternative_language_codes("es-ES");
+    recCfg->add_alternative_language_codes("fr-FR");
+    recCfg->add_alternative_language_codes("de-DE");
+    recCfg->add_alternative_language_codes("ja-JP");
+    recCfg->add_alternative_language_codes("cmn-Hans-CN");
+
+    auto streamer = speechClient.StreamingRecognize(streamCfg);
+
+    std::thread writer([&] {
+        StreamingRecognizeRequest req;
+        *req.mutable_streaming_config() = streamCfg;
+        streamer->Write(req, grpc::WriteOptions{});
+        while (true) {
+            std::vector<char> block;
+            {
+                std::unique_lock<std::mutex> lk(g_mutex);
+                g_cv.wait(lk, [] { return !g_captureQueue.empty() || g_stop; });
+                if (g_stop && g_captureQueue.empty()) break;
+                block = std::move(g_captureQueue.front());
+                g_captureQueue.pop();
+            }
+            StreamingRecognizeRequest dataReq;
+            dataReq.set_audio_content(std::string(block.begin(), block.end()));
+            streamer->Write(dataReq, grpc::WriteOptions{});
+        }
+        streamer->WritesDone();
+    });
+
+    TranslationServiceClient transClient(
+        ::google::cloud::translate_v3::MakeTranslationServiceConnection());
+    TextToSpeechClient ttsClient(
+        ::google::cloud::texttospeech::MakeTextToSpeechConnection());
+
+    StreamingRecognizeResponse resp;
+    while (streamer->Read(resp)) {
+        for (auto const& result : resp.results()) {
+            if (!result.alternatives().empty() && result.is_final()) {
+                std::string transcript = result.alternatives(0).transcript();
+                TranslateTextRequest tReq;
+                tReq.set_parent("projects/-/locations/global");
+                tReq.add_contents(transcript);
+                tReq.set_target_language_code(targetLang);
+                auto tResp = transClient.TranslateText(tReq);
+                if (!tResp) continue;
+                std::string translated;
+                if (!tResp->translations().empty())
+                    translated = tResp->translations(0).translated_text();
+                SynthesisInput sInput;
+                sInput.set_text(translated);
+                VoiceSelectionParams voice;
+                voice.set_language_code(targetLang);
+                AudioConfig cfg;
+                cfg.set_audio_encoding(
+                    ::google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
+                cfg.set_sample_rate_hertz(48000);
+                auto ttsResp = ttsClient.SynthesizeSpeech(sInput, voice, cfg);
+                if (!ttsResp) continue;
+                std::vector<char> pcm(ttsResp->audio_content().begin(),
+                                     ttsResp->audio_content().end());
+                {
+                    std::lock_guard<std::mutex> lk(g_mutex);
+                    g_ttsQueue.push(std::move(pcm));
+                }
+                g_cv.notify_one();
+            }
+        }
+        if (g_stop) break;
+    }
+
+    writer.join();
+    return true;
+}
+
+// Continuously writes PCM samples from g_ttsQueue to the render client.
+void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
+                    const WAVEFORMATEX& fmt)
+{
+    UINT32 bufferFrames = 0;
+    pClient->GetBufferSize(&bufferFrames);
+    pClient->Start();
+    while (true) {
+        UINT32 padding = 0;
+        pClient->GetCurrentPadding(&padding);
+        UINT32 framesToWrite = bufferFrames - padding;
+        if (framesToWrite == 0) {
+            if (g_stop && g_ttsQueue.empty()) break;
+            Sleep(10);
+            continue;
+        }
+
+        BYTE* pData = nullptr;
+        if (FAILED(pRender->GetBuffer(framesToWrite, &pData))) break;
+
+        DWORD bytesNeeded = framesToWrite * fmt.nBlockAlign;
+        std::vector<char> chunk;
+        {
+            std::lock_guard<std::mutex> lk(g_mutex);
+            if (!g_ttsQueue.empty()) {
+                chunk = std::move(g_ttsQueue.front());
+                g_ttsQueue.pop();
+            }
+        }
+
+        size_t copyBytes = min<size_t>(bytesNeeded, chunk.size());
+        if (copyBytes) memcpy(pData, chunk.data(), copyBytes);
+        if (copyBytes < bytesNeeded)
+            ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
+
+        if (copyBytes < chunk.size()) {
+            std::vector<char> remain(chunk.begin() + copyBytes, chunk.end());
+            std::lock_guard<std::mutex> lk(g_mutex);
+            g_ttsQueue.push(std::move(remain));
+        }
+
+        pRender->ReleaseBuffer(framesToWrite, 0);
+        if (g_stop && g_ttsQueue.empty()) {
+            Sleep(10);
+        }
+    }
+    pClient->Stop();
+}
+
 #ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
 #define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
 #endif
@@ -244,6 +402,7 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
 int wmain(int argc, wchar_t** argv)
 {
     DPF_ENTER();
+    g_stop = false;
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr))
     {
@@ -443,18 +602,6 @@ int wmain(int argc, wchar_t** argv)
     UINT32 bufferFrameCount = 0;
     pAudioClient->GetBufferSize(&bufferFrameCount);
     DPF(L"GetBufferSize: 0x%08lx\n", bufferFrameCount);
-    hr = pAudioClient->Start();
-    if (FAILED(hr))
-    {
-        DPF(L"Audio client start failed: 0x%08lx\n", hr);
-        pRenderClient->Release();
-        CloseHandle(hAudioEvent);
-        pAudioClient->Release();
-        pRenderDevice->Release();
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
 
     HANDLE hDevice = CreateFileW(L"\\\\.\\SysVADLoopback", GENERIC_READ, 0,
                                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -481,87 +628,62 @@ int wmain(int argc, wchar_t** argv)
 
     DPF(L"Press F9 to stop recording...\n");
 
+    std::thread playback(PlaybackThread, pAudioClient, pRenderClient, loopbackFormat);
+    std::thread pipeline(StartRealtimePipeline, targetLang);
+
     BYTE buffer[4096];
     DWORD bytesReturned = 0;
-
     bool stopRequested = false;
     while (!stopRequested)
     {
-        WaitForSingleObject(hAudioEvent, 100);
         if (GetAsyncKeyState(VK_F9) & 0x8000)
         {
             stopRequested = true;
             continue;
         }
-        if (stopRequested)
-            break;
 
-        UINT32 padding = 0;
-        pAudioClient->GetCurrentPadding(&padding);
-        DPF(L"GetCurrentPadding: 0x%08lx\n", padding);
-        UINT32 framesToWrite = bufferFrameCount - padding;
-        DPF(L"padding=%u, framesToWrite=%u\n", padding, framesToWrite);
-
-        BYTE* pData = nullptr;
-        if (FAILED(pRenderClient->GetBuffer(framesToWrite, &pData)))
-            break;
-
-        DWORD bytesNeeded = framesToWrite * loopbackFormat.nBlockAlign;
-        DWORD queryBytes = std::min<DWORD>(static_cast<DWORD>(sizeof(buffer)), bytesNeeded);
         if (!DeviceIoControl(hDevice,
                              IOCTL_SYSVAD_GET_LOOPBACK_DATA,
                              nullptr,
                              0,
                              buffer,
-                             queryBytes,
+                             static_cast<DWORD>(sizeof(buffer)),
                              &bytesReturned,
                              nullptr))
         {
-            DPF(L"DeviceIoControl failed: 0x%08lx\n", GetLastError());
             bytesReturned = 0;
         }
 
-        DWORD copyBytes = std::min(bytesReturned, bytesNeeded);
-        CopyMemory(pData, buffer, copyBytes);
-        if (copyBytes < bytesNeeded)
-            ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
-
-        if (hFile != INVALID_HANDLE_VALUE && bytesReturned > 0)
+        if (bytesReturned > 0)
         {
-            DWORD written = 0;
-            WriteFile(hFile, buffer, bytesReturned, &written, nullptr);
+            if (hFile != INVALID_HANDLE_VALUE)
+            {
+                DWORD written = 0;
+                WriteFile(hFile, buffer, bytesReturned, &written, nullptr);
+            }
+
+            std::vector<char> data(buffer, buffer + bytesReturned);
+            {
+                std::lock_guard<std::mutex> lk(g_mutex);
+                g_captureQueue.push(std::move(data));
+            }
+            g_cv.notify_one();
         }
 
-        pRenderClient->ReleaseBuffer(framesToWrite, 0);
+        Sleep(10);
     }
 
-    std::wstring wavPath;
     if (hFile != INVALID_HANDLE_VALUE)
-    {
         CloseHandle(hFile);
-        wavPath = outputFile;
-        size_t pos = wavPath.find_last_of(L'.');
-        if (pos == std::wstring::npos)
-            wavPath += L".wav";
-        else
-            wavPath.replace(pos, wavPath.length() - pos, L".wav");
-    }
     CloseHandle(hDevice);
 
-    pAudioClient->Stop();
+    g_stop = true;
+    g_cv.notify_all();
+    pipeline.join();
+    playback.join();
+
     pRenderClient->Release();
     CloseHandle(hAudioEvent);
-
-    if (!wavPath.empty())
-    {
-        if (ConvertRawToWav(outputFile, wavPath.c_str(), &loopbackFormat))
-            DPF(L"Converted %s to %s\n", outputFile, wavPath.c_str());
-        else
-            DPF(L"Failed to convert %s\n", outputFile);
-
-        // Send the recorded audio to Google Cloud for processing and playback
-        ProcessAudioWithGoogle(wavPath, targetLang, pRenderDevice);
-    }
 
     pAudioClient->Release();
     pRenderDevice->Release();
