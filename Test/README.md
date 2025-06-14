@@ -51,3 +51,15 @@ Options:
 * `-?` or `--help`  Show help
 
 Press `Ctrl+C` to stop the program.
+
+## Google Speech Test Script
+
+`test_google_speech.py` sends a WAV file to Google Cloud Speech-to-Text and
+prints the recognised text. The script automatically converts stereo input to
+mono so you can use a regular two-channel recording.
+
+```sh
+python test_google_speech.py <audio.wav> <credentials.json> [--language CODE]
+```
+
+The sample rate is detected from the WAV header unless `--rate` is supplied.
