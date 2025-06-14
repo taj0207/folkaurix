@@ -359,6 +359,8 @@ bool StartRealtimePipeline(const std::string& targetLang)
     recCfg->set_encoding(RecognitionConfig::LINEAR16);
     recCfg->set_sample_rate_hertz(48000);
     recCfg->set_language_code("en-US");
+    recCfg->set_audio_channel_count(2);
+    recCfg->set_enable_separate_recognition_per_channel(true);
     recCfg->add_alternative_language_codes("es-ES");
     recCfg->add_alternative_language_codes("fr-FR");
     recCfg->add_alternative_language_codes("de-DE");
@@ -381,7 +383,10 @@ bool StartRealtimePipeline(const std::string& targetLang)
     std::thread writer([&] {
         StreamingRecognizeRequest req;
         *req.mutable_streaming_config() = streamCfg;
-        streamer->Write(req, grpc::WriteOptions{});
+        if (!streamer->Write(req, grpc::WriteOptions{}).get()) {
+            std::cerr << "寫入設定失敗 (failed to write config)" << std::endl;
+            return;
+        }
         while (true) {
             std::vector<char> block;
             {
@@ -394,40 +399,42 @@ bool StartRealtimePipeline(const std::string& targetLang)
             StreamingRecognizeRequest dataReq;
            // DPF(L"Writer to speech-to-text: send block to gcloud\n");
             dataReq.set_audio_content(std::string(block.begin(), block.end()));
-            streamer->Write(dataReq, grpc::WriteOptions{});
+            if (!streamer->Write(dataReq, grpc::WriteOptions{}).get()) {
+                std::cerr << "寫入音訊區塊失敗 (failed to write audio block)" << std::endl;
+                break;
+            }
             Sleep(1);
         }
         DPF(L"Writer to speech-to-text exit\n");
         streamer->WritesDone();
     });
+
+    std::thread reader([&] {
+        while (true) {
+            auto resp_opt = streamer->Read().get();
+            if (!resp_opt) break;
+            StreamingRecognizeResponse const& resp = *resp_opt;
+            for (auto const& result : resp.results()) {
+                if (!result.alternatives().empty() && result.is_final()) {
+                    std::string transcript = result.alternatives(0).transcript();
+                    printf("%s\n", transcript.c_str());
+                    {
+                        std::lock_guard<std::mutex> lk(g_mutex);
+                        g_transcriptQueue.push(std::move(transcript));
+                    }
+                    g_cv.notify_one();
+                }
+            }
+            if (g_stop) break;
+        }
+    });
+
     DPF(L"Translate loop is on going\n");
     std::thread translator(TranslationThread, targetLang);
     std::thread tts(TtsThread, targetLang);
 
-    // google-cloud-cpp v2.37+ changed AsyncStreamingReadWriteRpc::Read() to
-    // return a future holding an optional response.  Adapt the synchronous
-    // loop accordingly.
-    while (true) {
-        DPF(L"stream.read\n");
-        auto resp_opt = streamer->Read().get();
-        if (!resp_opt) break;
-        DPF(L"stream.read finish\n");
-        StreamingRecognizeResponse const& resp = *resp_opt;
-        for (auto const& result : resp.results()) {
-            if (!result.alternatives().empty() && result.is_final()) {
-                std::string transcript = result.alternatives(0).transcript();
-                printf("%s\n", transcript.c_str());
-                {
-                    std::lock_guard<std::mutex> lk(g_mutex);
-                    g_transcriptQueue.push(std::move(transcript));
-                }
-                g_cv.notify_one();
-            }
-        }
-        if (g_stop) break;
-    }
-
     writer.join();
+    reader.join();
     g_cv.notify_all();
     translator.join();
     tts.join();
