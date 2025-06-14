@@ -301,6 +301,8 @@ void TranslationThread(const std::string& targetLang)
 void TtsThread(const std::string& targetLang)
 {
     using ::google::cloud::texttospeech::TextToSpeechClient;
+    using ::google::cloud::texttospeech::v1::StreamingSynthesizeSpeechRequest;
+    using ::google::cloud::texttospeech::v1::StreamingSynthesizeSpeechResponse;
     using ::google::cloud::texttospeech::v1::SynthesisInput;
     using ::google::cloud::texttospeech::v1::VoiceSelectionParams;
     using ::google::cloud::texttospeech::v1::AudioConfig;
@@ -319,23 +321,39 @@ void TtsThread(const std::string& targetLang)
             g_translationQueue.pop();
         }
 
-        SynthesisInput input;
-        input.set_text(text);
-        VoiceSelectionParams voice;
-        voice.set_language_code(targetLang);
-        AudioConfig cfg;
-        cfg.set_audio_encoding(
-            ::google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
-        cfg.set_sample_rate_hertz(48000);
-        auto ttsResp = client.SynthesizeSpeech(input, voice, cfg);
-        if (!ttsResp) continue;
-        std::vector<char> pcm(ttsResp->audio_content().begin(),
-                             ttsResp->audio_content().end());
-        {
-            std::lock_guard<std::mutex> lk(g_mutex);
-            g_ttsQueue.push(std::move(pcm));
+        auto streamer = client.AsyncStreamingSynthesizeSpeech();
+        if (!streamer->Start().get()) {
+            std::cerr << "Streaming TTS start failed" << std::endl;
+            continue;
         }
-        g_cv.notify_one();
+
+        StreamingSynthesizeSpeechRequest cfgReq;
+        auto* cfg = cfgReq.mutable_synthesis_config();
+        cfg->mutable_voice()->set_language_code(targetLang);
+        cfg->mutable_audio_config()->set_audio_encoding(
+            ::google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
+        cfg->mutable_audio_config()->set_sample_rate_hertz(48000);
+        if (!streamer->Write(cfgReq, grpc::WriteOptions{}).get()) {
+            streamer->Cancel();
+            continue;
+        }
+
+        StreamingSynthesizeSpeechRequest inputReq;
+        inputReq.set_text(text);
+        streamer->Write(inputReq, grpc::WriteOptions{}).get();
+        streamer->WritesDone();
+
+        while (true) {
+            auto resp = streamer->Read().get();
+            if (!resp) break;
+            std::vector<char> pcm(resp->audio_content().begin(),
+                                 resp->audio_content().end());
+            {
+                std::lock_guard<std::mutex> lk(g_mutex);
+                g_ttsQueue.push(std::move(pcm));
+            }
+            g_cv.notify_one();
+        }
     }
     DPF_EXIT();
 }
