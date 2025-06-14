@@ -269,7 +269,10 @@ bool StartRealtimePipeline(const std::string& targetLang)
     recCfg->add_alternative_language_codes("ja-JP");
     recCfg->add_alternative_language_codes("cmn-Hans-CN");
 
-    auto streamer = speechClient.StreamingRecognize(streamCfg);
+    // google-cloud-cpp 2.37+ uses AsyncStreamingRecognize for bidirectional
+    // streaming. Start the stream without an initial request and send the
+    // configuration as the first message in the writer thread below.
+    auto streamer = speechClient.AsyncStreamingRecognize();
 
     std::thread writer([&] {
         StreamingRecognizeRequest req;
@@ -366,7 +369,9 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
             }
         }
 
-        size_t copyBytes = min<size_t>(bytesNeeded, chunk.size());
+        // Use std::min to clamp the number of bytes copied to the available
+        // data in the current TTS chunk.
+        size_t copyBytes = std::min<size_t>(bytesNeeded, chunk.size());
         if (copyBytes) memcpy(pData, chunk.data(), copyBytes);
         if (copyBytes < bytesNeeded)
             ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
