@@ -4,6 +4,7 @@
 import argparse
 import io
 import os
+import wave
 
 from google.cloud import speech
 
@@ -19,13 +20,24 @@ def main() -> None:
         "--language", default="en-US", help="Language code of the audio (default: en-US)"
     )
     parser.add_argument(
-        "--rate", type=int, default=16000, help="Sample rate in Hz (default: 16000)"
+        "--rate",
+        type=int,
+        default=None,
+        help="Sample rate in Hz (default: value from WAV header)",
     )
     args = parser.parse_args()
 
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = args.credentials
 
     client = speech.SpeechClient()
+
+    # Determine the sample rate from the WAV header if not explicitly provided
+    with wave.open(args.audio, "rb") as wf:
+        file_rate = wf.getframerate()
+    if args.rate is None:
+        rate = file_rate
+    else:
+        rate = args.rate
 
     with io.open(args.audio, "rb") as f:
         content = f.read()
@@ -34,7 +46,7 @@ def main() -> None:
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         language_code=args.language,
-        sample_rate_hertz=args.rate,
+        sample_rate_hertz=rate,
     )
 
     response = client.recognize(config=config, audio=audio)
