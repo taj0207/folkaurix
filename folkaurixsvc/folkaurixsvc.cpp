@@ -326,7 +326,7 @@ bool StartRealtimePipeline(const std::string& targetLang,
                     std::cerr << "Failed to write audio block, stream may have closed." << std::endl;
                     break;
                 }
-                DPF(L"Sent block to gcs server stt\n");
+                //DPF(L"Sent block to gcs server stt\n");
                 Sleep(10);
             }
             streamer->WritesDone();
@@ -349,6 +349,10 @@ bool StartRealtimePipeline(const std::string& targetLang,
                             g_transcriptQueue.push(std::move(transcript));
                         }
                         g_cv.notify_one();
+                    }
+                    else
+                    {
+                        printf("read but not final\n");
                     }
                 }
             }
