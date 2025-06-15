@@ -570,15 +570,15 @@ Return Value:
             m_pMixFormat->DataFormat.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
             m_pMixFormat->DataFormat.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
             m_pMixFormat->WaveFormatExt.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-            m_pMixFormat->WaveFormatExt.Format.nChannels = 1;
-            m_pMixFormat->WaveFormatExt.Format.nSamplesPerSec = 16000;
-            m_pMixFormat->WaveFormatExt.Format.nBlockAlign = 2;
-            m_pMixFormat->WaveFormatExt.Format.nAvgBytesPerSec = 32000;
+            m_pMixFormat->WaveFormatExt.Format.nChannels = 2;
+            m_pMixFormat->WaveFormatExt.Format.nSamplesPerSec = 48000;
+            m_pMixFormat->WaveFormatExt.Format.nBlockAlign = 4;
+            m_pMixFormat->WaveFormatExt.Format.nAvgBytesPerSec = 192000;
             m_pMixFormat->WaveFormatExt.Format.wBitsPerSample = 16;
             m_pMixFormat->WaveFormatExt.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
             m_pMixFormat->WaveFormatExt.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
             m_pMixFormat->WaveFormatExt.Samples.wValidBitsPerSample = 16;
-            m_pMixFormat->WaveFormatExt.dwChannelMask = KSAUDIO_SPEAKER_MONO;
+            m_pMixFormat->WaveFormatExt.dwChannelMask = KSAUDIO_SPEAKER_STEREO;
 
             m_bGfxEnabled = FALSE;
 
