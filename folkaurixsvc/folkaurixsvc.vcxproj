@@ -14,29 +14,42 @@
     <ProjectGuid>{2B20064B-06B9-4A8E-9E8B-28E0EFEBDAB6}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>folkaurixsvc</RootNamespace>
+    <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir)nuget\Microsoft.CognitiveServices.Speech.1.44.0\build\native\include\cxx_api\;$(ProjectDir)nuget\Microsoft.CognitiveServices.Speech.1.44.0\build\native\include\c_api\</AdditionalIncludeDirectories>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
-    <LanguageStandard>stdcpp17</LanguageStandard>
+    <LanguageStandard>stdcpp20</LanguageStandard>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
-    <LanguageStandard>stdcpp17</LanguageStandard>
+    <LanguageStandard>stdcpp20</LanguageStandard>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+        <LanguageStandard>stdcpp20</LanguageStandard>
+        <AdditionalIncludeDirectories>$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+        <Zc__cplusplus>true</Zc__cplusplus>
     </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Microsoft.CognitiveServices.Speech.core.lib;$(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+        <LanguageStandard>stdcpp20</LanguageStandard>
+        <AdditionalIncludeDirectories>$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+        <Zc__cplusplus>true</Zc__cplusplus>
     </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Microsoft.CognitiveServices.Speech.core.lib;$(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

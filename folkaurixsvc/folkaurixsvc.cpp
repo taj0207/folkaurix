@@ -18,17 +18,23 @@
 #include <condition_variable>
 
 // Cloud client library headers
-#if API==GOOGLE
+#define GOOGLE 1
+#define Azure 2
+#define AWS 3
+
+#define API Azure
+
+#if API == GOOGLE
 #include <google/cloud/speech/speech_client.h>
 #include <google/cloud/translate/translation_client.h>
 #include <google/cloud/texttospeech/text_to_speech_client.h>
-#elif API==Azure
+#elif API == Azure
 #include <speechapi_cxx.h>
 #ifndef AZURE_KEY
-#define AZURE_KEY "<key>"
+#define AZURE_KEY "CpW7Vs5l83ABD2wONlEK0Yc64izsptjySuM7EsGHSSj9n1jTEV7RJQQJ99BFAC8vTInXJ3w3AAAYACOGIUHf"
 #endif
 #ifndef AZURE_REGION
-#define AZURE_REGION "<region>"
+#define AZURE_REGION "westus2"
 #endif
 #endif
 #include <fstream>
@@ -126,7 +132,7 @@ bool ConvertRawToWav(const wchar_t* rawPath,
 // Determine the appropriate Text-to-Speech encoding from a WAVEFORMATEX
 // structure. Only a subset of formats are mapped; all others default to
 // LINEAR16.
-#if API==GOOGLE
+#if API == GOOGLE
 google::cloud::texttospeech::v1::AudioEncoding
 EncodingFromWaveFormat(const WAVEFORMATEX& fmt)
 {
@@ -144,7 +150,7 @@ EncodingFromWaveFormat(const WAVEFORMATEX& fmt)
 
 // Thread that performs translation of transcripts pulled from g_transcriptQueue
 // and pushes the translated text to g_translationQueue.
-#if API==GOOGLE
+#if API == GOOGLE
 void TranslationThread(const std::string& targetLang)
 {
     using ::google::cloud::translate_v3::TranslationServiceClient;
@@ -185,7 +191,7 @@ void TranslationThread(const std::string& targetLang)
 #endif
 
 // Synthesizes translated text using the device's playback format.
-#if API==GOOGLE
+#if API == GOOGLE
 void TtsThread(const std::string& targetLang,
                google::cloud::texttospeech::v1::AudioEncoding encoding,
                int sampleRate)
@@ -273,7 +279,7 @@ void TtsThread(const std::string& targetLang,
 // Real-time pipeline. Captured audio blocks are streamed to Google Cloud
 // Speech-to-Text. Final transcripts are sent to a translation thread and the
 // resulting translations are synthesized in a separate text-to-speech thread.
-#if API==GOOGLE
+#if API == GOOGLE
 bool StartRealtimePipeline(const std::string& targetLang,
                            google::cloud::texttospeech::v1::AudioEncoding ttsEncoding,
                            int ttsRate)
@@ -432,7 +438,7 @@ bool StartRealtimePipeline(const std::string& targetLang,
 }
 #endif
 
-#if API==Azure
+#if API == Azure
 bool StartAzurePipeline(const std::string& targetLang)
 {
     using namespace Microsoft::CognitiveServices::Speech;
@@ -793,7 +799,7 @@ int wmain(int argc, wchar_t** argv)
 #if API==GOOGLE
     auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
     std::thread pipeline(StartRealtimePipeline, targetLang, ttsEncoding, renderFormat.nSamplesPerSec);
-#elif API==Azure
+#elif API == Azure
     std::thread pipeline(StartAzurePipeline, targetLang);
 #endif
 
