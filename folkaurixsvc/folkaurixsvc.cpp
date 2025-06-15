@@ -466,9 +466,10 @@ bool StartAzurePipeline(const std::string& targetLang)
     });
 
     recognizer->Recognized.Connect([&](const TranslationRecognitionEventArgs& e) {
-        if (e.Result.Reason == ResultReason::TranslatedSpeech) {
-            auto it = e.Result.Translations.find(targetLang);
-            if (it != e.Result.Translations.end()) {
+        auto result = e.Result;
+        if (result && result->Reason == ResultReason::TranslatedSpeech) {
+            auto it = result->Translations.find(targetLang);
+            if (it != result->Translations.end()) {
                 auto text = it->second;
                 auto ttsConfig = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
                 ttsConfig->SetSpeechSynthesisLanguage(targetLang.c_str());
@@ -789,8 +790,8 @@ int wmain(int argc, wchar_t** argv)
     DPF(L"Press F9 to stop recording...\n");
 
     std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
-    auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
 #if API==GOOGLE
+    auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
     std::thread pipeline(StartRealtimePipeline, targetLang, ttsEncoding, renderFormat.nSamplesPerSec);
 #elif API==Azure
     std::thread pipeline(StartAzurePipeline, targetLang);
