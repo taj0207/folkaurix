@@ -227,8 +227,13 @@ void TtsThread(const std::string& targetLang,
 
         // --- Read the audio chunks from the server ---
         while (true) {
+            if (g_stop) {
+                stream->Cancel();
+                break;
+            }
+
             auto chunk_opt = stream->Read().get();
-            if (!chunk_opt) break; 
+            if (!chunk_opt) break;
 
             ::google::cloud::texttospeech::v1::StreamingSynthesizeResponse const& response = *chunk_opt;
             if (!response.audio_content().empty()) {
