@@ -166,7 +166,7 @@ void TranslationThread(const std::string& targetLang)
             std::lock_guard<std::mutex> lk(g_mutex);
             g_translationQueue.push(std::move(translated));
         }
-        g_cv.notify_one();
+        g_cv.notify_all();
     }
     DPF_EXIT();
 }
@@ -243,7 +243,7 @@ void TtsThread(const std::string& targetLang,
                     std::lock_guard<std::mutex> lk(g_mutex);
                     g_ttsQueue.push(std::move(pcm));
                 }
-                g_cv.notify_one();
+                g_cv.notify_all();
             }
         }
 
@@ -272,6 +272,8 @@ bool StartRealtimePipeline(const std::string& targetLang,
     SpeechClient speechClient(
         ::google::cloud::speech::MakeSpeechConnection());
     StreamingRecognitionConfig streamCfg;
+    streamCfg.set_interim_results(true);
+    streamCfg.set_enable_voice_activity_events(true);
     auto* recCfg = streamCfg.mutable_config();
     recCfg->set_encoding(RecognitionConfig::LINEAR16);
     // Configure streaming recognition for 48 kHz stereo audio.
@@ -343,19 +345,42 @@ bool StartRealtimePipeline(const std::string& targetLang,
             auto resp_opt = streamer->Read().get();
             DPF(L"got returned from read()\n");
             if (!resp_opt) break; // Stream is done
-            for (auto const& result : resp_opt->results()) {
-                if (!result.alternatives().empty() && result.is_final()) {
-                    std::string transcript = result.alternatives(0).transcript();
-                    std::cout << "Transcript: " << transcript << std::endl;
-                    {
-                        std::lock_guard<std::mutex> lk(g_mutex);
-                        g_transcriptQueue.push(std::move(transcript));
-                    }
-                    g_cv.notify_one();
+
+            using StreamingResp =
+                google::cloud::speech::v1::StreamingRecognizeResponse;
+            auto event = resp_opt->speech_event_type();
+            if (event != StreamingResp::SPEECH_EVENT_UNSPECIFIED) {
+                std::string name;
+                switch (event) {
+                    case StreamingResp::END_OF_SINGLE_UTTERANCE:
+                        name = "END_OF_SINGLE_UTTERANCE";
+                        break;
+                    case StreamingResp::SPEECH_ACTIVITY_BEGIN:
+                        name = "SPEECH_ACTIVITY_BEGIN";
+                        break;
+                    case StreamingResp::SPEECH_ACTIVITY_END:
+                        name = "SPEECH_ACTIVITY_END";
+                        break;
+                    default:
+                        name = std::to_string(event);
+                        break;
                 }
-                else
-                {
-                    printf("read but not final\n");
+                std::cout << "Voice activity event: " << name << std::endl;
+            }
+
+            for (auto const& result : resp_opt->results()) {
+                if (!result.alternatives().empty()) {
+                    std::string transcript = result.alternatives(0).transcript();
+                    if (result.is_final()) {
+                        std::cout << "Transcript: " << transcript << std::endl;
+                        {
+                            std::lock_guard<std::mutex> lk(g_mutex);
+                            g_transcriptQueue.push(std::move(transcript));
+                        }
+                        g_cv.notify_all();
+                    } else {
+                        std::cout << "Interim: " << transcript << std::endl;
+                    }
                 }
             }
         }
@@ -715,7 +740,7 @@ int wmain(int argc, wchar_t** argv)
                 std::lock_guard<std::mutex> lk(g_mutex);
                 g_captureQueue.push(std::move(data));
             }
-            g_cv.notify_one();
+            g_cv.notify_all();
         }
 
         Sleep(10);
