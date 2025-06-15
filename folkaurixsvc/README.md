@@ -9,9 +9,11 @@ played back through a user selected audio render device.  Optionally the
 raw PCM data can also be written to a file.
 
 ## Building
-The project is a standard Visual Studio console application.  Add
-`folkaurixsvc.cpp` to a new Win32 project and build for x64 or any
-desired architecture.
+The project is a standard Visual Studio console application. Add
+`folkaurixsvc.cpp` to a new Win32 project and build for x64 (or any desired
+architecture). When using the Azure Speech SDK version 1.44 or newer the
+compiler must support the C++20 language standard. Ensure the `/Zc:__cplusplus`
+option is enabled so the SDK detects that C++20 features are available.
 
 ## Usage
 ```
