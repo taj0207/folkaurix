@@ -51,6 +51,15 @@ static std::mutex g_mutex;
 static std::condition_variable g_cv;
 static bool g_stop = false;
 
+void ClearAllQueues()
+{
+    std::lock_guard<std::mutex> lk(g_mutex);
+    while (!g_captureQueue.empty()) g_captureQueue.pop();
+    while (!g_transcriptQueue.empty()) g_transcriptQueue.pop();
+    while (!g_translationQueue.empty()) g_translationQueue.pop();
+    while (!g_ttsQueue.empty()) g_ttsQueue.pop();
+}
+
 bool ConvertRawToWav(const wchar_t* rawPath,
                      const wchar_t* wavPath,
                      const WAVEFORMATEX* pwfx)
@@ -816,6 +825,7 @@ int wmain(int argc, wchar_t** argv)
             stopRequested = true;
             g_stop = true;
             g_cv.notify_all();
+            ClearAllQueues();
             continue;
         }
 
@@ -876,6 +886,7 @@ int wmain(int argc, wchar_t** argv)
     g_cv.notify_all();
     pipeline.join();
     playback.join();
+    ClearAllQueues();
 
     pRenderClient->Release();
     CloseHandle(hAudioEvent);
