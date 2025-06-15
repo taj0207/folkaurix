@@ -706,8 +706,6 @@ int wmain(int argc, wchar_t** argv)
             pwfx->nChannels, pwfx->wBitsPerSample, pwfx->nSamplesPerSec);
 
     WAVEFORMATEX renderFormat = *pwfx;
-    CoTaskMemFree(pwfx);
-    pwfx = nullptr;
 
     // SysVAD loopback streams audio in a fixed 1ch/16-bit/16kHz format.
     WAVEFORMATEX captureFormat = {};
@@ -726,7 +724,7 @@ int wmain(int argc, wchar_t** argv)
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
-                                  &renderFormat,
+                                  pwfx,
                                   nullptr);
     if (FAILED(hr))
     {
@@ -737,6 +735,8 @@ int wmain(int argc, wchar_t** argv)
         DPF_EXIT();
         return 1;
     }
+    CoTaskMemFree(pwfx);
+    pwfx = nullptr;
 
     HANDLE hAudioEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     pAudioClient->SetEventHandle(hAudioEvent);
