@@ -57,7 +57,7 @@ int RecordCallback(const void* input, void*, unsigned long frameCount,
             std::lock_guard<std::mutex> lk(g_mutex);
             g_queue.push(std::move(data));
         }
-        g_cv.notify_one();
+        g_cv.notify_all();
     }
     return g_finished ? paComplete : paContinue;
 }
