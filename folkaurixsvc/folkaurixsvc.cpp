@@ -435,7 +435,7 @@ bool StartRealtimePipeline(const std::string& targetLang,
         return 1;
     }
 
-std::thread writer([&] {
+    std::thread writer([&] {
             DPF(L"Writer thread started\n");
             StreamingRecognizeRequest req;
             *req.mutable_streaming_config() = streamCfg;
@@ -449,7 +449,12 @@ std::thread writer([&] {
                 {
                     std::unique_lock<std::mutex> lk(g_mutex);
                     g_cv.wait(lk, [] { return !g_captureQueue.empty() || g_stop; });
-                    if (g_stop && g_captureQueue.empty()) break;
+                    if (g_stop) 
+                    {
+                        while(!g_captureQueue.empty())
+                            g_captureQueue.pop();
+                        break;
+                    }
                     block = std::move(g_captureQueue.front());
                     g_captureQueue.pop();
                 }
@@ -460,6 +465,7 @@ std::thread writer([&] {
                     std::cerr << "Failed to write audio block, stream may have closed." << std::endl;
                     break;
                 }
+                DPF(L"Sent block to gcs server stt\n");
                 Sleep(10);
             }
             streamer->WritesDone();
@@ -496,6 +502,17 @@ std::thread writer([&] {
     // Cancel the stream to unblock the reader if it is waiting
     streamer->Cancel();
     reader.join();
+
+    auto status = streamer->Finish().get();
+    if (!status.ok()) {
+        // status.message() 會告訴你詳細的錯誤原因
+        std::cerr << "!!! Speech-to-Text stream finished with a FATAL error: "
+                  << status.message() << std::endl;
+    } else {
+        std::wcout << L"Speech-to-Text stream finished successfully (OK)." << std::endl;
+    }
+
+
     g_cv.notify_all();
     translator.join();
     tts.join();
