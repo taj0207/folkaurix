@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <mmreg.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <string>
 
@@ -102,6 +103,23 @@ bool ConvertRawToWav(const wchar_t* rawPath,
     CloseHandle(hOut);
     CloseHandle(hIn);
     return true;
+}
+
+// Determine the appropriate Text-to-Speech encoding from a WAVEFORMATEX
+// structure. Only a subset of formats are mapped; all others default to
+// LINEAR16.
+google::cloud::texttospeech::v1::AudioEncoding
+EncodingFromWaveFormat(const WAVEFORMATEX& fmt)
+{
+    switch (fmt.wFormatTag)
+    {
+    case WAVE_FORMAT_ALAW:
+        return google::cloud::texttospeech::v1::AudioEncoding::ALAW;
+    case WAVE_FORMAT_MULAW:
+        return google::cloud::texttospeech::v1::AudioEncoding::MULAW;
+    default:
+        return google::cloud::texttospeech::v1::AudioEncoding::LINEAR16;
+    }
 }
 
 // Process captured audio using Google Cloud services. This is a simplified
@@ -297,8 +315,10 @@ void TranslationThread(const std::string& targetLang)
     DPF_EXIT();
 }
 
-// This is the fully corrected version incorporating all fixes.
-void TtsThread(const std::string& targetLang)
+// Synthesizes translated text using the device's playback format.
+void TtsThread(const std::string& targetLang,
+               google::cloud::texttospeech::v1::AudioEncoding encoding,
+               int sampleRate)
 {
     DPF_ENTER();
     ::google::cloud::texttospeech_v1::TextToSpeechClient client(
@@ -326,10 +346,8 @@ void TtsThread(const std::string& targetLang)
         const auto stream_config = config_req.mutable_streaming_config();
         auto* config = stream_config->mutable_streaming_audio_config();
         stream_config->mutable_voice()->set_language_code(targetLang);
-        // SOLUTION for C2039 ('mutable_audio_config'): Set audio properties directly on the config object
-        config->set_audio_encoding(
-            google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
-        config->set_sample_rate_hertz(16000);
+        config->set_audio_encoding(encoding);
+        config->set_sample_rate_hertz(sampleRate);
         
         if (!stream->Write(config_req, grpc::WriteOptions{}).get()) {
             std::cerr << "TTS Stream failed to write config." << std::endl;
@@ -339,7 +357,6 @@ void TtsThread(const std::string& targetLang)
         // --- Second Write: Send the text ---
         ::google::cloud::texttospeech::v1::StreamingSynthesizeRequest text_req;
         
-        // SOLUTION for C2039 ('set_text_input'): Use mutable_input()->set_text()
         text_req.mutable_input()->set_text(text);
         
         if (!stream->Write(text_req, grpc::WriteOptions{}).get()) {
@@ -371,7 +388,6 @@ void TtsThread(const std::string& targetLang)
 
         auto status = stream->Finish().get();
         if (!status.ok()) {
-            // This is now valid C++ because 'status' is a known type
             std::cerr << "TTS Stream finished with error: " << status << std::endl;
         }
     }
@@ -381,7 +397,9 @@ void TtsThread(const std::string& targetLang)
 // Real-time pipeline. Captured audio blocks are streamed to Google Cloud
 // Speech-to-Text. Final transcripts are sent to a translation thread and the
 // resulting translations are synthesized in a separate text-to-speech thread.
-bool StartRealtimePipeline(const std::string& targetLang)
+bool StartRealtimePipeline(const std::string& targetLang,
+                           google::cloud::texttospeech::v1::AudioEncoding ttsEncoding,
+                           int ttsRate)
 {
     DPF_ENTER();
     using ::google::cloud::speech::SpeechClient;
@@ -411,11 +429,9 @@ bool StartRealtimePipeline(const std::string& targetLang)
     // configuration as the first message in the writer thread below.
     auto streamer = speechClient.AsyncStreamingRecognize();
 
-    // 【關鍵步驟】啟動串流，並檢查是否成功
+    // Start the stream and verify success.
     if (!streamer->Start().get()) {
-        // 如果 Start() 回傳 false，表示串流建立失敗，必須在此處理錯誤並返回
-        std::cerr << "串流啟動失敗 (Stream failed to start)" << std::endl;
-        // 在這裡加上錯誤處理，例如 return 1;
+        std::cerr << "Stream failed to start" << std::endl;
         return 1;
     }
 
@@ -470,11 +486,11 @@ std::thread writer([&] {
                 }
             }
             DPF(L"Reader thread finished\n");
-        });;
+        });
 
     DPF(L"Translate loop is on going\n");
     std::thread translator(TranslationThread, targetLang);
-    std::thread tts(TtsThread, targetLang);
+    std::thread tts(TtsThread, targetLang, ttsEncoding, ttsRate);
 
     writer.join();
     reader.join();
@@ -689,28 +705,28 @@ int wmain(int argc, wchar_t** argv)
     DPF(L"Render device format: %u channels, %u-bit, %u Hz\n",
             pwfx->nChannels, pwfx->wBitsPerSample, pwfx->nSamplesPerSec);
 
-    // We only needed the mix format for informational purposes.
+    WAVEFORMATEX renderFormat = *pwfx;
     CoTaskMemFree(pwfx);
     pwfx = nullptr;
 
     // SysVAD loopback streams audio in a fixed 1ch/16-bit/16kHz format.
-    WAVEFORMATEX loopbackFormat = {};
-    loopbackFormat.wFormatTag = WAVE_FORMAT_PCM;
-    loopbackFormat.nChannels = 1;
-    loopbackFormat.nSamplesPerSec = 16000;
-    loopbackFormat.wBitsPerSample = 16;
-    loopbackFormat.nBlockAlign =
-        loopbackFormat.nChannels * loopbackFormat.wBitsPerSample / 8;
-    loopbackFormat.nAvgBytesPerSec =
-        loopbackFormat.nSamplesPerSec * loopbackFormat.nBlockAlign;
-    loopbackFormat.cbSize = 0;
+    WAVEFORMATEX captureFormat = {};
+    captureFormat.wFormatTag = WAVE_FORMAT_PCM;
+    captureFormat.nChannels = 1;
+    captureFormat.nSamplesPerSec = 16000;
+    captureFormat.wBitsPerSample = 16;
+    captureFormat.nBlockAlign =
+        captureFormat.nChannels * captureFormat.wBitsPerSample / 8;
+    captureFormat.nAvgBytesPerSec =
+        captureFormat.nSamplesPerSec * captureFormat.nBlockAlign;
+    captureFormat.cbSize = 0;
 
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
-                                  &loopbackFormat,
+                                  &renderFormat,
                                   nullptr);
     if (FAILED(hr))
     {
@@ -767,8 +783,9 @@ int wmain(int argc, wchar_t** argv)
 
     DPF(L"Press F9 to stop recording...\n");
 
-    std::thread playback(PlaybackThread, pAudioClient, pRenderClient, loopbackFormat);
-    std::thread pipeline(StartRealtimePipeline, targetLang);
+    std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
+    auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
+    std::thread pipeline(StartRealtimePipeline, targetLang, ttsEncoding, renderFormat.nSamplesPerSec);
 
     BYTE buffer[4096];
     DWORD bytesReturned = 0;
@@ -816,7 +833,7 @@ int wmain(int argc, wchar_t** argv)
         CloseHandle(hFile);
 
     // If an output RAW file was specified, convert it to WAV after
-    // all recording is done. The loopbackFormat used for capture
+    // all recording is done. The captureFormat used for capture
     // matches the data written to the RAW file, so reuse it for the
     // WAV header.
     if (outputFile)
@@ -829,7 +846,7 @@ int wmain(int argc, wchar_t** argv)
         else
             wavPath += L".wav";
 
-        ConvertRawToWav(rawPath.c_str(), wavPath.c_str(), &loopbackFormat);
+        ConvertRawToWav(rawPath.c_str(), wavPath.c_str(), &captureFormat);
     }
 
     CloseHandle(hDevice);
