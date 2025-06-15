@@ -394,7 +394,7 @@ bool StartRealtimePipeline(const std::string& targetLang)
     StreamingRecognitionConfig streamCfg;
     auto* recCfg = streamCfg.mutable_config();
     recCfg->set_encoding(RecognitionConfig::LINEAR16);
-    recCfg->set_sample_rate_hertz(48000);
+    recCfg->set_sample_rate_hertz(44100);
     recCfg->set_language_code("en-US");
     recCfg->set_audio_channel_count(2);
     recCfg->set_enable_separate_recognition_per_channel(true);
@@ -442,6 +442,7 @@ std::thread writer([&] {
                     std::cerr << "Failed to write audio block, stream may have closed." << std::endl;
                     break;
                 }
+                Sleep(10);
             }
             streamer->WritesDone();
             DPF(L"Writer thread finished\n");
