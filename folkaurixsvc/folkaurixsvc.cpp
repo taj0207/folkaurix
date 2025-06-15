@@ -17,11 +17,20 @@
 #include <mutex>
 #include <condition_variable>
 
-// Google Cloud C++ client library headers (optional, may require additional
-// dependencies when building)
+// Cloud client library headers
+#if API==GOOGLE
 #include <google/cloud/speech/speech_client.h>
 #include <google/cloud/translate/translation_client.h>
 #include <google/cloud/texttospeech/text_to_speech_client.h>
+#elif API==Azure
+#include <speechapi_cxx.h>
+#ifndef AZURE_KEY
+#define AZURE_KEY "<key>"
+#endif
+#ifndef AZURE_REGION
+#define AZURE_REGION "<region>"
+#endif
+#endif
 #include <fstream>
 #include <vector>
 #include <algorithm>
@@ -117,6 +126,7 @@ bool ConvertRawToWav(const wchar_t* rawPath,
 // Determine the appropriate Text-to-Speech encoding from a WAVEFORMATEX
 // structure. Only a subset of formats are mapped; all others default to
 // LINEAR16.
+#if API==GOOGLE
 google::cloud::texttospeech::v1::AudioEncoding
 EncodingFromWaveFormat(const WAVEFORMATEX& fmt)
 {
@@ -130,9 +140,11 @@ EncodingFromWaveFormat(const WAVEFORMATEX& fmt)
         return google::cloud::texttospeech::v1::AudioEncoding::LINEAR16;
     }
 }
+#endif
 
 // Thread that performs translation of transcripts pulled from g_transcriptQueue
 // and pushes the translated text to g_translationQueue.
+#if API==GOOGLE
 void TranslationThread(const std::string& targetLang)
 {
     using ::google::cloud::translate_v3::TranslationServiceClient;
@@ -170,8 +182,10 @@ void TranslationThread(const std::string& targetLang)
     }
     DPF_EXIT();
 }
+#endif
 
 // Synthesizes translated text using the device's playback format.
+#if API==GOOGLE
 void TtsThread(const std::string& targetLang,
                google::cloud::texttospeech::v1::AudioEncoding encoding,
                int sampleRate)
@@ -254,10 +268,12 @@ void TtsThread(const std::string& targetLang,
     }
     DPF_EXIT();
 }
+#endif
 
 // Real-time pipeline. Captured audio blocks are streamed to Google Cloud
 // Speech-to-Text. Final transcripts are sent to a translation thread and the
 // resulting translations are synthesized in a separate text-to-speech thread.
+#if API==GOOGLE
 bool StartRealtimePipeline(const std::string& targetLang,
                            google::cloud::texttospeech::v1::AudioEncoding ttsEncoding,
                            int ttsRate)
@@ -414,6 +430,81 @@ bool StartRealtimePipeline(const std::string& targetLang,
     DPF_EXIT();
     return true;
 }
+#endif
+
+#if API==Azure
+bool StartAzurePipeline(const std::string& targetLang)
+{
+    using namespace Microsoft::CognitiveServices::Speech;
+    using namespace Microsoft::CognitiveServices::Speech::Translation;
+    using namespace Microsoft::CognitiveServices::Speech::Audio;
+
+    DPF_ENTER();
+
+    auto speechConfig = SpeechTranslationConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+    speechConfig->SetSpeechRecognitionLanguage("en-US");
+    speechConfig->AddTargetLanguage(targetLang);
+
+    auto pushStream = AudioInputStream::CreatePushStream();
+    auto audioInput = AudioConfig::FromStreamInput(pushStream);
+    auto recognizer = TranslationRecognizer::FromConfig(speechConfig, audioInput);
+
+    std::thread writer([&] {
+        while (!g_stop) {
+            std::vector<char> block;
+            {
+                std::unique_lock<std::mutex> lk(g_mutex);
+                g_cv.wait(lk, []{ return !g_captureQueue.empty() || g_stop; });
+                if (g_stop && g_captureQueue.empty()) break;
+                block = std::move(g_captureQueue.front());
+                g_captureQueue.pop();
+            }
+            pushStream->Write(reinterpret_cast<uint8_t*>(block.data()),
+                              block.size());
+        }
+        pushStream->Close();
+    });
+
+    recognizer->Recognized.Connect([&](const TranslationRecognitionEventArgs& e) {
+        if (e.Result.Reason == ResultReason::TranslatedSpeech) {
+            auto it = e.Result.Translations.find(targetLang);
+            if (it != e.Result.Translations.end()) {
+                auto text = it->second;
+                auto ttsConfig = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+                ttsConfig->SetSpeechSynthesisLanguage(targetLang.c_str());
+                ttsConfig->SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat::Riff16Khz16BitMonoPcm);
+                auto outStream = AudioOutputStream::CreatePullStream();
+                auto audioCfg = AudioConfig::FromStreamOutput(outStream);
+                auto synthesizer = SpeechSynthesizer::FromConfig(ttsConfig, audioCfg);
+                synthesizer->SpeakTextAsync(text).get();
+
+                std::vector<char> pcm;
+                uint8_t buffer[1024];
+                while (auto read = outStream->Read(buffer, sizeof(buffer))) {
+                    pcm.insert(pcm.end(), buffer, buffer + read);
+                    if (read < sizeof(buffer)) break;
+                }
+                {
+                    std::lock_guard<std::mutex> lk(g_mutex);
+                    g_ttsQueue.push(std::move(pcm));
+                }
+                g_cv.notify_all();
+            }
+        }
+    });
+
+    recognizer->StartContinuousRecognitionAsync().get();
+    while (!g_stop) {
+        Sleep(10);
+    }
+    recognizer->StopContinuousRecognitionAsync().get();
+
+    writer.join();
+
+    DPF_EXIT();
+    return true;
+}
+#endif
 
 // Continuously writes PCM samples from g_ttsQueue to the render client.
 void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
@@ -699,7 +790,11 @@ int wmain(int argc, wchar_t** argv)
 
     std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
     auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
+#if API==GOOGLE
     std::thread pipeline(StartRealtimePipeline, targetLang, ttsEncoding, renderFormat.nSamplesPerSec);
+#elif API==Azure
+    std::thread pipeline(StartAzurePipeline, targetLang);
+#endif
 
     BYTE buffer[4096];
     DWORD bytesReturned = 0;

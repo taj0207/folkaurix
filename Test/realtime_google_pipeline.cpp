@@ -11,9 +11,19 @@
 // PortAudio is used for cross-platform real-time audio capture and playback.
 #include <portaudio.h>
 
+#if API==GOOGLE
 #include <google/cloud/speech/speech_client.h>
 #include <google/cloud/translate/translation_client.h>
 #include <google/cloud/texttospeech/text_to_speech_client.h>
+#elif API==Azure
+#include <speechapi_cxx.h>
+#ifndef AZURE_KEY
+#define AZURE_KEY "<key>"
+#endif
+#ifndef AZURE_REGION
+#define AZURE_REGION "<region>"
+#endif
+#endif
 
 namespace {
 
@@ -99,6 +109,7 @@ int main(int argc, char* argv[]) {
 
     std::signal(SIGINT, SignalHandler);
 
+#if API==GOOGLE
     using ::google::cloud::speech::SpeechClient;
     using ::google::cloud::speech::v1::RecognitionConfig;
     using ::google::cloud::speech::v1::StreamingRecognitionConfig;
@@ -185,6 +196,64 @@ int main(int argc, char* argv[]) {
     }
 
     writer.join();
+#elif API==Azure
+    using namespace Microsoft::CognitiveServices::Speech;
+    using namespace Microsoft::CognitiveServices::Speech::Translation;
+    using namespace Microsoft::CognitiveServices::Speech::Audio;
+
+    auto speechConfig = SpeechTranslationConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+    speechConfig->SetSpeechRecognitionLanguage("en-US");
+    speechConfig->AddTargetLanguage(targetLang);
+
+    auto pushStream = AudioInputStream::CreatePushStream();
+    auto audioInput = AudioConfig::FromStreamInput(pushStream);
+    auto recognizer = TranslationRecognizer::FromConfig(speechConfig, audioInput);
+
+    std::thread writer([&] {
+        while (!g_finished) {
+            std::vector<int16_t> block;
+            {
+                std::unique_lock<std::mutex> lk(g_mutex);
+                g_cv.wait(lk, []{ return !g_queue.empty() || g_finished; });
+                if (g_finished && g_queue.empty()) break;
+                block = std::move(g_queue.front());
+                g_queue.pop();
+            }
+            pushStream->Write(block.data(), block.size() * sizeof(int16_t));
+        }
+        pushStream->Close();
+    });
+
+    recognizer->Recognized.Connect([&](const TranslationRecognitionEventArgs& e) {
+        if (e.Result.Reason == ResultReason::TranslatedSpeech) {
+            auto it = e.Result.Translations.find(targetLang);
+            if (it != e.Result.Translations.end()) {
+                auto text = it->second;
+                auto ttsConfig = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+                ttsConfig->SetSpeechSynthesisLanguage(targetLang.c_str());
+                ttsConfig->SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat::Riff16Khz16BitMonoPcm);
+                auto ttsStream = AudioOutputStream::CreatePullStream();
+                auto ttsAudio = AudioConfig::FromStreamOutput(ttsStream);
+                auto synthesizer = SpeechSynthesizer::FromConfig(ttsConfig, ttsAudio);
+                synthesizer->SpeakTextAsync(text).get();
+
+                uint8_t buffer[1024];
+                while (auto read = ttsStream->Read(buffer, sizeof(buffer))) {
+                    Pa_WriteStream(outStream, buffer, read / sizeof(int16_t));
+                    if (read < sizeof(buffer)) break;
+                }
+            }
+        }
+    });
+
+    recognizer->StartContinuousRecognitionAsync().get();
+    while (!g_finished) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    recognizer->StopContinuousRecognitionAsync().get();
+
+    writer.join();
+#endif
     Pa_StopStream(inStream);
     Pa_StopStream(outStream);
     Pa_CloseStream(inStream);
