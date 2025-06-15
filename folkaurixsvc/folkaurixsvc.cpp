@@ -296,76 +296,83 @@ bool StartRealtimePipeline(const std::string& targetLang,
         return 1;
     }
 
-    std::thread writer([&] {
-            DPF(L"Writer thread started\n");
-            StreamingRecognizeRequest req;
-            *req.mutable_streaming_config() = streamCfg;
-            if (!streamer->Write(req, grpc::WriteOptions{}).get()) {
-                std::cerr << "Failed to write config" << std::endl;
-                return;
-            }
+    std::thread writer([&] 
+    {
+        DPF(L"Writer thread started\n");
+        StreamingRecognizeRequest req;
+        *req.mutable_streaming_config() = streamCfg;
+        if (!streamer->Write(req, grpc::WriteOptions{}).get()) {
+            std::cerr << "Failed to write config" << std::endl;
+            return;
+        }
 
-            while (true) {
-                std::vector<char> block;
+        while (true) 
+        {
+            std::vector<char> block;
+            {
+                std::unique_lock<std::mutex> lk(g_mutex);
+                g_cv.wait(lk, [] { return !g_captureQueue.empty() || g_stop; });
+                if (g_stop) 
                 {
-                    std::unique_lock<std::mutex> lk(g_mutex);
-                    g_cv.wait(lk, [] { return !g_captureQueue.empty() || g_stop; });
-                    if (g_stop) 
-                    {
-                        while(!g_captureQueue.empty())
-                            g_captureQueue.pop();
-                        break;
-                    }
-                    block = std::move(g_captureQueue.front());
-                    g_captureQueue.pop();
-                }
-
-                StreamingRecognizeRequest dataReq;
-                dataReq.set_audio_content(std::string(block.begin(), block.end()));
-                if (!streamer->Write(dataReq, grpc::WriteOptions{}).get()) {
-                    std::cerr << "Failed to write audio block, stream may have closed." << std::endl;
+                    while(!g_captureQueue.empty())
+                        g_captureQueue.pop();
                     break;
                 }
-                //DPF(L"Sent block to gcs server stt\n");
-                Sleep(10);
+                block = std::move(g_captureQueue.front());
+                g_captureQueue.pop();
             }
-            streamer->WritesDone();
-            DPF(L"Writer thread finished\n");
-        });
 
-        // This lambda replaces the old `StreamingReaderThread` function.
-        // It captures `streamer` by reference.
-        std::thread reader([&] {
-            DPF(L"Reader thread started\n");
-            while (true) {
-                auto resp_opt = streamer->Read().get();
-                if (!resp_opt) break; // Stream is done
-                for (auto const& result : resp_opt->results()) {
-                    if (!result.alternatives().empty() && result.is_final()) {
-                        std::string transcript = result.alternatives(0).transcript();
-                        printf("Transcript: %s\n", transcript.c_str());
-                        {
-                            std::lock_guard<std::mutex> lk(g_mutex);
-                            g_transcriptQueue.push(std::move(transcript));
-                        }
-                        g_cv.notify_one();
-                    }
-                    else
+            StreamingRecognizeRequest dataReq;
+            dataReq.set_audio_content(std::string(block.begin(), block.end()));
+            if (!streamer->Write(dataReq, grpc::WriteOptions{}).get()) {
+                std::cerr << "Failed to write audio block, stream may have closed." << std::endl;
+                break;
+            }
+            DPF(L"Sent block to gcs server stt (%ld)\n", block.size());
+            Sleep(10);
+        }
+        streamer->WritesDone();
+        DPF(L"Writer thread finished\n");
+    });
+
+    // This lambda replaces the old `StreamingReaderThread` function.
+    // It captures `streamer` by reference.
+    std::thread reader([&] {
+        DPF(L"Reader thread started\n");
+        while (true) {
+            auto resp_opt = streamer->Read().get();
+            DPF(L"got returned from read()\n");
+            if (!resp_opt) break; // Stream is done
+            for (auto const& result : resp_opt->results()) {
+                if (!result.alternatives().empty() && result.is_final()) {
+                    std::string transcript = result.alternatives(0).transcript();
+                    std::cout << "Transcript: " << transcript << std::endl;
                     {
-                        printf("read but not final\n");
+                        std::lock_guard<std::mutex> lk(g_mutex);
+                        g_transcriptQueue.push(std::move(transcript));
                     }
+                    g_cv.notify_one();
+                }
+                else
+                {
+                    printf("read but not final\n");
                 }
             }
-            DPF(L"Reader thread finished\n");
-        });
+        }
+        DPF(L"Reader thread finished\n");
+    });
 
     DPF(L"Translate loop is on going\n");
     std::thread translator(TranslationThread, targetLang);
     std::thread tts(TtsThread, targetLang, ttsEncoding, ttsRate);
 
+
+    translator.join();
+    tts.join();
+
     writer.join();
     // Cancel the stream to unblock the reader if it is waiting
-    streamer->Cancel();
+   // streamer->Cancel();
     reader.join();
 
     auto status = streamer->Finish().get();
@@ -378,9 +385,7 @@ bool StartRealtimePipeline(const std::string& targetLang,
     }
 
 
-    g_cv.notify_all();
-    translator.join();
-    tts.join();
+   // g_cv.notify_all();
     DPF_EXIT();
     return true;
 }
@@ -397,8 +402,8 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
         UINT32 padding = 0;
         pClient->GetCurrentPadding(&padding);
         UINT32 framesToWrite = bufferFrames - padding;
+        if (g_stop && g_ttsQueue.empty()) break;
         if (framesToWrite == 0) {
-            if (g_stop && g_ttsQueue.empty()) break;
             Sleep(10);
             continue;
         }
@@ -430,7 +435,7 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
         }
 
         pRender->ReleaseBuffer(framesToWrite, 0);
-        if (g_stop && g_ttsQueue.empty()) {
+        if (!g_stop && g_ttsQueue.empty()) {
             Sleep(10);
         }
     }
