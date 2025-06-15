@@ -814,6 +814,24 @@ int wmain(int argc, wchar_t** argv)
 
     if (hFile != INVALID_HANDLE_VALUE)
         CloseHandle(hFile);
+
+    // If an output RAW file was specified, convert it to WAV after
+    // all recording is done. The loopbackFormat used for capture
+    // matches the data written to the RAW file, so reuse it for the
+    // WAV header.
+    if (outputFile)
+    {
+        std::wstring rawPath(outputFile);
+        std::wstring wavPath = rawPath;
+        size_t dot = wavPath.find_last_of(L'.');
+        if (dot != std::wstring::npos)
+            wavPath.replace(dot, wavPath.size() - dot, L".wav");
+        else
+            wavPath += L".wav";
+
+        ConvertRawToWav(rawPath.c_str(), wavPath.c_str(), &loopbackFormat);
+    }
+
     CloseHandle(hDevice);
 
     g_stop = true;
