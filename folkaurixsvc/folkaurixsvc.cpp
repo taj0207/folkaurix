@@ -493,6 +493,8 @@ std::thread writer([&] {
     std::thread tts(TtsThread, targetLang, ttsEncoding, ttsRate);
 
     writer.join();
+    // Cancel the stream to unblock the reader if it is waiting
+    streamer->Cancel();
     reader.join();
     g_cv.notify_all();
     translator.join();
@@ -795,6 +797,8 @@ int wmain(int argc, wchar_t** argv)
         if (GetAsyncKeyState(VK_F9) & 0x8000)
         {
             stopRequested = true;
+            g_stop = true;
+            g_cv.notify_all();
             continue;
         }
 
