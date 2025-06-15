@@ -136,7 +136,8 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
         ::google::cloud::speech::MakeSpeechConnection());
     RecognitionConfig recConfig;
     recConfig.set_encoding(RecognitionConfig::LINEAR16);
-    recConfig.set_sample_rate_hertz(48000);
+    // SysVad now captures at 16 kHz mono. Configure Speech-to-Text accordingly.
+    recConfig.set_sample_rate_hertz(16000);
     recConfig.set_language_code("en-US");
     // Enable automatic language detection with a set of defaults.
     // The recognizer will pick the best match among these languages.
@@ -181,7 +182,7 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     ::google::cloud::texttospeech::v1::AudioConfig audioCfg;
     audioCfg.set_audio_encoding(
         ::google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
-    audioCfg.set_sample_rate_hertz(48000);
+    audioCfg.set_sample_rate_hertz(16000);
     auto ttsResp = ttsClient.SynthesizeSpeech(input, voice, audioCfg);
     if (!ttsResp) return false;
 
@@ -198,7 +199,7 @@ bool ProcessAudioWithGoogle(const std::wstring& wavPath,
     WAVEFORMATEX format = {};
     format.wFormatTag = WAVE_FORMAT_PCM;
     format.nChannels = 1;
-    format.nSamplesPerSec = 48000;
+    format.nSamplesPerSec = 16000;
     format.wBitsPerSample = 16;
     format.nBlockAlign = format.nChannels * format.wBitsPerSample / 8;
     format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
@@ -328,7 +329,7 @@ void TtsThread(const std::string& targetLang)
         // SOLUTION for C2039 ('mutable_audio_config'): Set audio properties directly on the config object
         config->set_audio_encoding(
             google::cloud::texttospeech::v1::AudioEncoding::LINEAR16);
-        config->set_sample_rate_hertz(48000);
+        config->set_sample_rate_hertz(16000);
         
         if (!stream->Write(config_req, grpc::WriteOptions{}).get()) {
             std::cerr << "TTS Stream failed to write config." << std::endl;
@@ -394,10 +395,11 @@ bool StartRealtimePipeline(const std::string& targetLang)
     StreamingRecognitionConfig streamCfg;
     auto* recCfg = streamCfg.mutable_config();
     recCfg->set_encoding(RecognitionConfig::LINEAR16);
-    recCfg->set_sample_rate_hertz(44100);
+    // Configure streaming recognition for 16 kHz mono audio.
+    recCfg->set_sample_rate_hertz(16000);
     recCfg->set_language_code("en-US");
-    recCfg->set_audio_channel_count(2);
-    recCfg->set_enable_separate_recognition_per_channel(true);
+    recCfg->set_audio_channel_count(1);
+    recCfg->set_enable_separate_recognition_per_channel(false);
     recCfg->add_alternative_language_codes("es-ES");
     recCfg->add_alternative_language_codes("fr-FR");
     recCfg->add_alternative_language_codes("de-DE");
@@ -691,11 +693,11 @@ int wmain(int argc, wchar_t** argv)
     CoTaskMemFree(pwfx);
     pwfx = nullptr;
 
-    // SysVAD loopback streams audio in a fixed 2ch/16-bit/48kHz format.
+    // SysVAD loopback streams audio in a fixed 1ch/16-bit/16kHz format.
     WAVEFORMATEX loopbackFormat = {};
     loopbackFormat.wFormatTag = WAVE_FORMAT_PCM;
-    loopbackFormat.nChannels = 2;
-    loopbackFormat.nSamplesPerSec = 48000;
+    loopbackFormat.nChannels = 1;
+    loopbackFormat.nSamplesPerSec = 16000;
     loopbackFormat.wBitsPerSample = 16;
     loopbackFormat.nBlockAlign =
         loopbackFormat.nChannels * loopbackFormat.wBitsPerSample / 8;
