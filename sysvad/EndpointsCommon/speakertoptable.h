@@ -119,7 +119,8 @@ static
 PCCONNECTION_DESCRIPTOR SpeakerTopoMiniportConnections[] =
 {
   //  FromNode,                     FromPin,                        ToNode,                      ToPin
-  {   PCFILTER_NODE,                KSPIN_TOPO_WAVEOUT_SOURCE,      PCFILTER_NODE,               KSPIN_TOPO_LINEOUT_DEST}
+  {   PCFILTER_NODE,                KSPIN_TOPO_WAVEOUT_SOURCE,      KSNODE_TOPO_PEAKMETER,       1 },
+  {   KSNODE_TOPO_PEAKMETER,        0,                              PCFILTER_NODE,               KSPIN_TOPO_LINEOUT_DEST }
 };
 
 
@@ -149,6 +150,20 @@ PCPROPERTY_ITEM PropertiesSpeakerTopoFilter[] =
         PropertyHandler_SpeakerTopoFilter
     },
     {
+        &KSPROPSETID_Audio,
+        KSPROPERTY_AUDIO_PEAKMETER2,
+        KSPROPERTY_TYPE_GET |
+        KSPROPERTY_TYPE_BASICSUPPORT,
+        PropertyHandler_Topology
+    },
+    {
+        &KSPROPSETID_Audio,
+        KSPROPERTY_AUDIO_CPU_RESOURCES,
+        KSPROPERTY_TYPE_GET |
+        KSPROPERTY_TYPE_BASICSUPPORT,
+        PropertyHandler_Topology
+    },
+    {
         &KSPROPSETID_AudioResourceManagement,
         KSPROPERTY_AUDIORESOURCEMANAGEMENT_RESOURCEGROUP,
         KSPROPERTY_TYPE_SET,
@@ -167,6 +182,40 @@ DEFINE_PCAUTOMATION_TABLE_PROP(AutomationSpeakerTopoFilter, PropertiesSpeakerTop
 
 //=============================================================================
 static
+PCPROPERTY_ITEM SpeakerPropertiesPeakMeter[] =
+{
+  {
+    &KSPROPSETID_Audio,
+    KSPROPERTY_AUDIO_PEAKMETER2,
+    KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+    PropertyHandler_Topology
+  },
+  {
+    &KSPROPSETID_Audio,
+    KSPROPERTY_AUDIO_CPU_RESOURCES,
+    KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+    PropertyHandler_Topology
+  }
+};
+
+DEFINE_PCAUTOMATION_TABLE_PROP(AutomationSpeakerPeakMeter, SpeakerPropertiesPeakMeter);
+
+//=============================================================================
+static
+PCNODE_DESCRIPTOR SpeakerTopologyNodes[] =
+{
+  // KSNODE_TOPO_PEAKMETER
+  {
+    0,                                // Flags
+    &AutomationSpeakerPeakMeter,      // AutomationTable
+    &KSNODETYPE_PEAKMETER,            // Type
+    &KSAUDFNAME_PEAKMETER             // Name
+  }
+};
+
+
+//=============================================================================
+static
 PCFILTER_DESCRIPTOR SpeakerTopoMiniportFilterDescriptor =
 {
   0,                                            // Version
@@ -175,8 +224,8 @@ PCFILTER_DESCRIPTOR SpeakerTopoMiniportFilterDescriptor =
   SIZEOF_ARRAY(SpeakerTopoMiniportPins),        // PinCount
   SpeakerTopoMiniportPins,                      // Pins
   sizeof(PCNODE_DESCRIPTOR),                    // NodeSize
-  0,                                            // NodeCount
-  NULL,                                         // Nodes
+  SIZEOF_ARRAY(SpeakerTopologyNodes),           // NodeCount
+  SpeakerTopologyNodes,                         // Nodes
   SIZEOF_ARRAY(SpeakerTopoMiniportConnections), // ConnectionCount
   SpeakerTopoMiniportConnections,               // Connections
   0,                                            // CategoryCount
