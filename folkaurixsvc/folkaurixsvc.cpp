@@ -101,10 +101,11 @@ bool ConvertRawToWav(const wchar_t* rawPath,
 
     DWORD written = 0;
     // Write a standard WAV header using little-endian FOURCC codes.
-    DWORD riff = 'RIFF';
-    DWORD wave = 'WAVE';
-    DWORD fmt = 'fmt ';
-    DWORD data = 'data';
+    // Use explicit little-endian constants for the RIFF header chunks
+    DWORD riff = 0x46464952; // 'RIFF'
+    DWORD wave = 0x45564157; // 'WAVE'
+    DWORD fmt  = 0x20746d66; // 'fmt '
+    DWORD data = 0x61746164; // 'data'
     DWORD subchunk1Size = sizeof(WAVEFORMATEX) + pwfx->cbSize;
     DWORD chunkSize = 20 + subchunk1Size + dataSize;
 
@@ -127,6 +128,73 @@ bool ConvertRawToWav(const wchar_t* rawPath,
     CloseHandle(hOut);
     CloseHandle(hIn);
     return true;
+}
+
+struct WaveFileWriter
+{
+    HANDLE handle = INVALID_HANDLE_VALUE;
+    DWORD dataSize = 0;
+    DWORD fmtSize = 0;
+};
+
+bool OpenWaveFile(WaveFileWriter& writer,
+                  const wchar_t* path,
+                  const WAVEFORMATEX* pwfx)
+{
+    writer.handle = CreateFileW(path, GENERIC_WRITE, 0, nullptr,
+                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (writer.handle == INVALID_HANDLE_VALUE)
+        return false;
+
+    writer.fmtSize = sizeof(WAVEFORMATEX) + pwfx->cbSize;
+
+    DWORD written = 0;
+    DWORD riff = 0x46464952; // 'RIFF'
+    DWORD wave = 0x45564157; // 'WAVE'
+    DWORD fmt  = 0x20746d66; // 'fmt '
+    DWORD data = 0x61746164; // 'data'
+    DWORD chunkSize = 20 + writer.fmtSize; // updated on finalize
+    DWORD zero = 0;
+
+    WriteFile(writer.handle, &riff, 4, &written, nullptr);
+    WriteFile(writer.handle, &chunkSize, 4, &written, nullptr);
+    WriteFile(writer.handle, &wave, 4, &written, nullptr);
+    WriteFile(writer.handle, &fmt, 4, &written, nullptr);
+    WriteFile(writer.handle, &writer.fmtSize, 4, &written, nullptr);
+    WriteFile(writer.handle, pwfx, writer.fmtSize, &written, nullptr);
+    WriteFile(writer.handle, &data, 4, &written, nullptr);
+    WriteFile(writer.handle, &zero, 4, &written, nullptr);
+    return true;
+}
+
+bool WriteWaveData(WaveFileWriter& writer, const void* data, DWORD size)
+{
+    DWORD written = 0;
+    if (!WriteFile(writer.handle, data, size, &written, nullptr))
+        return false;
+    writer.dataSize += written;
+    return written == size;
+}
+
+void FinalizeWaveFile(WaveFileWriter& writer)
+{
+    if (writer.handle == INVALID_HANDLE_VALUE)
+        return;
+
+    DWORD chunkSize = 20 + writer.fmtSize + writer.dataSize;
+    LARGE_INTEGER pos = {};
+    DWORD written = 0;
+
+    pos.QuadPart = 4;
+    SetFilePointerEx(writer.handle, pos, nullptr, FILE_BEGIN);
+    WriteFile(writer.handle, &chunkSize, 4, &written, nullptr);
+
+    pos.QuadPart = 20 + writer.fmtSize + 4;
+    SetFilePointerEx(writer.handle, pos, nullptr, FILE_BEGIN);
+    WriteFile(writer.handle, &writer.dataSize, 4, &written, nullptr);
+
+    CloseHandle(writer.handle);
+    writer.handle = INVALID_HANDLE_VALUE;
 }
 
 // Determine the appropriate Text-to-Speech encoding from a WAVEFORMATEX
@@ -779,18 +847,18 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
-    HANDLE hFile = INVALID_HANDLE_VALUE;
+    WaveFileWriter wavWriter;
+    bool useFile = false;
     if (outputFile)
     {
-        hFile = CreateFileW(outputFile, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
-                             FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (hFile == INVALID_HANDLE_VALUE)
+        if (!OpenWaveFile(wavWriter, outputFile, &captureFormat))
         {
             DPF(L"Failed to open output file: %lu\n", GetLastError());
             CloseHandle(hDevice);
             DPF_EXIT();
             return 1;
         }
+        useFile = true;
     }
 
     DPF(L"Press F9 to stop recording...\n");
@@ -831,10 +899,9 @@ int wmain(int argc, wchar_t** argv)
 
         if (bytesReturned > 0)
         {
-            if (hFile != INVALID_HANDLE_VALUE)
+            if (useFile)
             {
-                DWORD written = 0;
-                WriteFile(hFile, buffer, bytesReturned, &written, nullptr);
+                WriteWaveData(wavWriter, buffer, bytesReturned);
             }
 
             std::vector<char> data(buffer, buffer + bytesReturned);
@@ -848,25 +915,8 @@ int wmain(int argc, wchar_t** argv)
         Sleep(10);
     }
 
-    if (hFile != INVALID_HANDLE_VALUE)
-        CloseHandle(hFile);
-
-    // If an output RAW file was specified, convert it to WAV after
-    // all recording is done. The captureFormat used for capture
-    // matches the data written to the RAW file, so reuse it for the
-    // WAV header.
-    if (outputFile)
-    {
-        std::wstring rawPath(outputFile);
-        std::wstring wavPath = rawPath;
-        size_t dot = wavPath.find_last_of(L'.');
-        if (dot != std::wstring::npos)
-            wavPath.replace(dot, wavPath.size() - dot, L".wav");
-        else
-            wavPath += L".wav";
-
-        ConvertRawToWav(rawPath.c_str(), wavPath.c_str(), &captureFormat);
-    }
+    if (useFile)
+        FinalizeWaveFile(wavWriter);
 
     CloseHandle(hDevice);
 
