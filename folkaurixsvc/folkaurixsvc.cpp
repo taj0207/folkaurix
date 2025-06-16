@@ -298,10 +298,10 @@ bool StartRealtimePipeline(const std::string& targetLang,
     streamCfg.set_enable_voice_activity_events(true);
     auto* recCfg = streamCfg.mutable_config();
     recCfg->set_encoding(RecognitionConfig::LINEAR16);
-    // Configure streaming recognition for 48 kHz stereo audio.
-    recCfg->set_sample_rate_hertz(48000);
+    // Configure streaming recognition for 16 kHz mono audio.
+    recCfg->set_sample_rate_hertz(16000);
     recCfg->set_language_code("en-US");
-    recCfg->set_audio_channel_count(2);
+    recCfg->set_audio_channel_count(1);
     recCfg->set_enable_separate_recognition_per_channel(false);
     recCfg->add_alternative_language_codes("es-ES");
     recCfg->add_alternative_language_codes("fr-FR");
@@ -719,11 +719,11 @@ int wmain(int argc, wchar_t** argv)
 
     WAVEFORMATEX renderFormat = *pwfx;
 
-    // SysVAD loopback streams audio in a fixed 2ch/16-bit/48kHz format.
+    // SysVAD loopback streams audio in a fixed 1ch/16-bit/16kHz format.
     WAVEFORMATEX captureFormat = {};
     captureFormat.wFormatTag = WAVE_FORMAT_PCM;
-    captureFormat.nChannels = 2;
-    captureFormat.nSamplesPerSec = 48000;
+    captureFormat.nChannels = 1;
+    captureFormat.nSamplesPerSec = 16000;
     captureFormat.wBitsPerSample = 16;
     captureFormat.nBlockAlign =
         captureFormat.nChannels * captureFormat.wBitsPerSample / 8;
