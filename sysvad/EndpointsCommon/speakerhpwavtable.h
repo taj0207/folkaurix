@@ -19,21 +19,21 @@ Abstract:
 #include "AudioModule1.h"
 #include "AudioModule2.h"
 
-// To keep the code simple assume device supports only 48KHz, 16-bit, stereo (PCM and NON-PCM)
+// To keep the code simple assume device supports only 16KHz, 16-bit, mono (PCM and NON-PCM)
 
-#define SPEAKERHP_DEVICE_MAX_CHANNELS                   2       // Max Channels.
+#define SPEAKERHP_DEVICE_MAX_CHANNELS                   1       // Max Channels.
 
-#define SPEAKERHP_HOST_MAX_CHANNELS                     2       // Max Channels.
+#define SPEAKERHP_HOST_MAX_CHANNELS                     1       // Max Channels.
 #define SPEAKERHP_HOST_MIN_BITS_PER_SAMPLE              16      // Min Bits Per Sample
 #define SPEAKERHP_HOST_MAX_BITS_PER_SAMPLE              16      // Max Bits Per Sample
-#define SPEAKERHP_HOST_MIN_SAMPLE_RATE                  24000   // Min Sample Rate
-#define SPEAKERHP_HOST_MAX_SAMPLE_RATE                  96000   // Max Sample Rate
+#define SPEAKERHP_HOST_MIN_SAMPLE_RATE                  16000   // Min Sample Rate
+#define SPEAKERHP_HOST_MAX_SAMPLE_RATE                  16000   // Max Sample Rate
 
-#define SPEAKERHP_OFFLOAD_MAX_CHANNELS                  2       // Max Channels.
+#define SPEAKERHP_OFFLOAD_MAX_CHANNELS                  1       // Max Channels.
 #define SPEAKERHP_OFFLOAD_MIN_BITS_PER_SAMPLE           16      // Min Bits Per Sample
 #define SPEAKERHP_OFFLOAD_MAX_BITS_PER_SAMPLE           16      // Max Bits Per Sample
-#define SPEAKERHP_OFFLOAD_MIN_SAMPLE_RATE               44100   // Min Sample Rate
-#define SPEAKERHP_OFFLOAD_MAX_SAMPLE_RATE               48000   // Max Sample Rate
+#define SPEAKERHP_OFFLOAD_MIN_SAMPLE_RATE               16000   // Min Sample Rate
+#define SPEAKERHP_OFFLOAD_MAX_SAMPLE_RATE               16000   // Max Sample Rate
 
 #define SPEAKERHP_LOOPBACK_MAX_CHANNELS                 SPEAKERHP_HOST_MAX_CHANNELS          // Must be equal to host pin's Max Channels.
 #define SPEAKERHP_LOOPBACK_MIN_BITS_PER_SAMPLE          SPEAKERHP_HOST_MIN_BITS_PER_SAMPLE   // Must be equal to host pin's Min Bits Per Sample
@@ -41,11 +41,11 @@ Abstract:
 #define SPEAKERHP_LOOPBACK_MIN_SAMPLE_RATE              SPEAKERHP_HOST_MIN_SAMPLE_RATE       // Must be equal to host pin's Min Sample Rate
 #define SPEAKERHP_LOOPBACK_MAX_SAMPLE_RATE              SPEAKERHP_HOST_MAX_SAMPLE_RATE       // Must be equal to host pin's Max Sample Rate
 
-#define SPEAKERHP_DOLBY_DIGITAL_MAX_CHANNELS            2       // Max Channels.
+#define SPEAKERHP_DOLBY_DIGITAL_MAX_CHANNELS            1       // Max Channels.
 #define SPEAKERHP_DOLBY_DIGITAL_MIN_BITS_PER_SAMPLE     16      // Min Bits Per Sample
 #define SPEAKERHP_DOLBY_DIGITAL_MAX_BITS_PER_SAMPLE     16      // Max Bits Per Sample
-#define SPEAKERHP_DOLBY_DIGITAL_MIN_SAMPLE_RATE         44100   // Min Sample Rate
-#define SPEAKERHP_DOLBY_DIGITAL_MAX_SAMPLE_RATE         44100   // Max Sample Rate
+#define SPEAKERHP_DOLBY_DIGITAL_MIN_SAMPLE_RATE         16000   // Min Sample Rate
+#define SPEAKERHP_DOLBY_DIGITAL_MAX_SAMPLE_RATE         16000   // Max Sample Rate
 
 //
 // Max # of pin instances.
@@ -71,15 +71,15 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpAudioEngineSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                44100,
-                176400,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
             16,
-            KSAUDIO_SPEAKER_STEREO,
+            KSAUDIO_SPEAKER_MONO,
             STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
         }
     },
@@ -96,10 +96,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpAudioEngineSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                24000,
-                96000,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE)-sizeof(WAVEFORMATEX)
             },
@@ -121,10 +121,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpAudioEngineSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                48000,
-                192000,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
@@ -146,10 +146,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpAudioEngineSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                88200,
-                352800,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
@@ -171,10 +171,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpAudioEngineSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                96000,
-                384000,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
@@ -201,15 +201,15 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpHostPinSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                24000,
-                96000,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE)-sizeof(WAVEFORMATEX)
             },
             16,
-            KSAUDIO_SPEAKER_STEREO,
+            KSAUDIO_SPEAKER_MONO,
             STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
         }
     },
@@ -252,9 +252,9 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpHostPinSupportedDeviceFormats[] =
             {
                 WAVE_FORMAT_EXTENSIBLE,
                 2,
-                44100,
-                176400,
-                4,
+                16000,
+                32000,
+                2,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE)-sizeof(WAVEFORMATEX)
             },
@@ -276,10 +276,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpHostPinSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                48000,
-                192000,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
@@ -301,10 +301,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpHostPinSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                88200,
-                352800,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
@@ -326,10 +326,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpHostPinSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                96000,
-                384000,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
@@ -356,15 +356,15 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpOffloadPinSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                44100,
-                176400,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
             16,
-            KSAUDIO_SPEAKER_STEREO,
+            KSAUDIO_SPEAKER_MONO,
             STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
         }
     },
@@ -381,10 +381,10 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE SpeakerHpOffloadPinSupportedDeviceFormats[] =
         {
             {
                 WAVE_FORMAT_EXTENSIBLE,
+                1,
+                16000,
+                32000,
                 2,
-                48000,
-                192000,
-                4,
                 16,
                 sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
             },
@@ -403,27 +403,27 @@ MODE_AND_DEFAULT_FORMAT SpeakerHpHostPinSupportedDeviceModes[] =
 {
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_RAW,
-        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 48KHz
+        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 16KHz
     },
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_DEFAULT,
-        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 48KHz
+        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 16KHz
     },
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_MEDIA,
-        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 48KHz
+        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 16KHz
     },
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_MOVIE,
-        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 48KHz
+        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 16KHz
     },
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_COMMUNICATIONS,
-        &SpeakerHpHostPinSupportedDeviceFormats[0].DataFormat // 24KHz
+        &SpeakerHpHostPinSupportedDeviceFormats[0].DataFormat // 16KHz
     },
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_NOTIFICATION,
-        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 48KHz
+        &SpeakerHpHostPinSupportedDeviceFormats[3].DataFormat // 16KHz
     }
 };
 
@@ -432,11 +432,11 @@ MODE_AND_DEFAULT_FORMAT SpeakerHpOffloadPinSupportedDeviceModes[] =
 {
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_DEFAULT,
-        &SpeakerHpOffloadPinSupportedDeviceFormats[1].DataFormat // 48KHz
+        &SpeakerHpOffloadPinSupportedDeviceFormats[1].DataFormat // 16KHz
     },
     {
         STATIC_AUDIO_SIGNALPROCESSINGMODE_MEDIA,
-        &SpeakerHpOffloadPinSupportedDeviceFormats[1].DataFormat // 48KHz
+        &SpeakerHpOffloadPinSupportedDeviceFormats[1].DataFormat // 16KHz
     }
 };
 
