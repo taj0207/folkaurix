@@ -1665,7 +1665,13 @@ VOID CMiniportWaveRTStream::UpdatePeakMeter(
         m_plPeakMeter[c] = val;
         if (adapter)
         {
-            adapter->MixerPeakMeterWrite(KSNODE_TOPO_PEAKMETER, c, val);
+            ULONG nodeId = KSNODE_TOPO_PEAKMETER;
+            if (m_pMiniport->m_DeviceType == eSpeakerDevice ||
+                m_pMiniport->m_DeviceType == eSpeakerHpDevice)
+            {
+                nodeId = 0;
+            }
+            adapter->MixerPeakMeterWrite(nodeId, c, val);
         }
     }
 }
