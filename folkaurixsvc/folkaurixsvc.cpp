@@ -17,6 +17,7 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <mmreg.h>
+#include <ksmedia.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <string>
 
@@ -244,29 +245,55 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
         return false;
     }
 
-    // Initialize the audio client using the same format as the
-    // text-to-speech output (16 kHz / 16-bit / mono). The Windows
-    // audio engine will automatically convert this to the device's
-    // mix format.
+    // Use 16 kHz / 16-bit mono for TTS output and check if the device supports
+    // this format. If not supported, fall back to the closest match or the mix
+    // format returned by the audio driver.
     WAVEFORMATEX ttsFmt = {};
     ttsFmt.wFormatTag = WAVE_FORMAT_PCM;
     ttsFmt.nChannels = 1;
     ttsFmt.nSamplesPerSec = 16000;
     ttsFmt.wBitsPerSample = 16;
-    ttsFmt.nBlockAlign =
-        ttsFmt.nChannels * ttsFmt.wBitsPerSample / 8;
-    ttsFmt.nAvgBytesPerSec =
-        ttsFmt.nSamplesPerSec * ttsFmt.nBlockAlign;
+    ttsFmt.nBlockAlign = ttsFmt.nChannels * ttsFmt.wBitsPerSample / 8;
+    ttsFmt.nAvgBytesPerSec = ttsFmt.nSamplesPerSec * ttsFmt.nBlockAlign;
     ttsFmt.cbSize = 0;
 
-    renderFormat = ttsFmt;
+    WAVEFORMATEX* pClosest = nullptr;
+    hr = pAudioClient->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED,
+                                         &ttsFmt, &pClosest);
+    if (hr == S_OK)
+    {
+        renderFormat = ttsFmt;
+    }
+    else
+    {
+        if (pClosest)
+        {
+            renderFormat = *pClosest;
+            CoTaskMemFree(pClosest);
+        }
+        else
+        {
+            WAVEFORMATEX* pMix = nullptr;
+            if (SUCCEEDED(pAudioClient->GetMixFormat(&pMix)))
+            {
+                renderFormat = *pMix;
+                CoTaskMemFree(pMix);
+            }
+            else
+            {
+                pAudioClient->Release();
+                pRenderDevice->Release();
+                return false;
+            }
+        }
+    }
 
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
-                                  &ttsFmt,
+                                  &renderFormat,
                                   nullptr);
     if (FAILED(hr))
     {
@@ -418,6 +445,67 @@ void FinalizeWaveFile(WaveFileWriter& writer)
 
     CloseHandle(writer.handle);
     writer.handle = INVALID_HANDLE_VALUE;
+}
+
+// Simple helper to check if the destination format uses IEEE float samples.
+static bool IsFloatFormat(const WAVEFORMATEX& fmt)
+{
+    if (fmt.wFormatTag == WAVE_FORMAT_IEEE_FLOAT)
+        return true;
+    if (fmt.wFormatTag == WAVE_FORMAT_EXTENSIBLE && fmt.cbSize >= sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX))
+    {
+        const WAVEFORMATEXTENSIBLE* wfex = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(&fmt);
+        return wfex->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+    }
+    return false;
+}
+
+// Resamples 16‑bit mono PCM at 16 kHz to the specified render format.
+static std::vector<char> ResampleToRenderFormat(const std::vector<char>& input,
+                                               const WAVEFORMATEX& outFmt)
+{
+    const int srcRate = 16000;
+    size_t srcSamples = input.size() / sizeof(int16_t);
+    const int16_t* src = reinterpret_cast<const int16_t*>(input.data());
+
+    size_t dstSamples = static_cast<size_t>(
+        static_cast<double>(srcSamples) * outFmt.nSamplesPerSec / srcRate + 0.5);
+
+    std::vector<char> output(dstSamples * outFmt.nBlockAlign);
+
+    bool useFloat = IsFloatFormat(outFmt);
+    for (size_t i = 0; i < dstSamples; ++i)
+    {
+        double pos = static_cast<double>(i) * srcRate / outFmt.nSamplesPerSec;
+        size_t idx = static_cast<size_t>(pos);
+        double frac = pos - idx;
+        if (idx >= srcSamples - 1) idx = srcSamples - 1;
+
+        int16_t s1 = src[idx];
+        int16_t s2 = src[idx + (idx + 1 < srcSamples ? 1 : 0)];
+        double sample = s1 + (s2 - s1) * frac;
+
+        for (int ch = 0; ch < outFmt.nChannels; ++ch)
+        {
+            if (useFloat)
+            {
+                float* dst = reinterpret_cast<float*>(output.data());
+                dst[i * outFmt.nChannels + ch] = static_cast<float>(sample / 32768.0);
+            }
+            else if (outFmt.wBitsPerSample == 32)
+            {
+                int32_t* dst = reinterpret_cast<int32_t*>(output.data());
+                dst[i * outFmt.nChannels + ch] = static_cast<int32_t>(sample) << 16;
+            }
+            else // 16-bit PCM
+            {
+                int16_t* dst = reinterpret_cast<int16_t*>(output.data());
+                dst[i * outFmt.nChannels + ch] = static_cast<int16_t>(sample);
+            }
+        }
+    }
+
+    return output;
 }
 
 // Determine the appropriate Text-to-Speech encoding from a WAVEFORMATEX
@@ -859,17 +947,23 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
     pClient->GetBufferSize(&bufferFrames);
     size_t totalPlayed = 0;
     pClient->Start();
+    std::vector<char> pending;
     while (true) {
-        std::vector<char> chunk;
+        if (pending.empty())
         {
-            std::unique_lock<std::mutex> lk(g_ttsMutex);
-            if (g_ttsQueue.empty() && !g_stop)
-                g_ttsCv.wait(lk, [] { return !g_ttsQueue.empty() || g_stop; });
-            if (g_stop && g_ttsQueue.empty()) break;
-            if (!g_ttsQueue.empty()) {
-                chunk = std::move(g_ttsQueue.front());
-                g_ttsQueue.pop();
+            std::vector<char> chunk;
+            {
+                std::unique_lock<std::mutex> lk(g_ttsMutex);
+                if (g_ttsQueue.empty() && !g_stop)
+                    g_ttsCv.wait(lk, [] { return !g_ttsQueue.empty() || g_stop; });
+                if (g_stop && g_ttsQueue.empty()) break;
+                if (!g_ttsQueue.empty()) {
+                    chunk = std::move(g_ttsQueue.front());
+                    g_ttsQueue.pop();
+                }
             }
+            if (!chunk.empty())
+                pending = ResampleToRenderFormat(chunk, fmt);
         }
 
         UINT32 padding = 0;
@@ -880,20 +974,19 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
             pClient->GetCurrentPadding(&padding);
             framesToWrite = bufferFrames - padding;
         }
-        if (g_stop && framesToWrite == 0 && chunk.empty()) break;
+        if (g_stop && framesToWrite == 0 && pending.empty()) break;
 
         BYTE* pData = nullptr;
         if (FAILED(pRender->GetBuffer(framesToWrite, &pData))) break;
 
         DWORD bytesNeeded = framesToWrite * fmt.nBlockAlign;
 
-        // Use std::min to clamp the number of bytes copied to the available
-        // data in the current TTS chunk.
-        size_t copyBytes = std::min<size_t>(bytesNeeded, chunk.size());
+        size_t copyBytes = std::min<size_t>(bytesNeeded, pending.size());
         if (copyBytes) {
-            memcpy(pData, chunk.data(), copyBytes);
+            memcpy(pData, pending.data(), copyBytes);
             if (pWriter)
-                WriteWaveData(*pWriter, chunk.data(), static_cast<DWORD>(copyBytes));
+                WriteWaveData(*pWriter, pending.data(), static_cast<DWORD>(copyBytes));
+            pending.erase(pending.begin(), pending.begin() + copyBytes);
         }
         if (copyBytes < bytesNeeded)
             ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
@@ -901,14 +994,8 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
         std::cout << "Playback wrote " << copyBytes << " bytes, total "
                   << totalPlayed << std::endl;
 
-        if (copyBytes < chunk.size()) {
-            std::vector<char> remain(chunk.begin() + copyBytes, chunk.end());
-            std::lock_guard<std::mutex> lk(g_ttsMutex);
-            g_ttsQueue.push(std::move(remain));
-        }
-
         pRender->ReleaseBuffer(framesToWrite, 0);
-        if (!g_stop && g_ttsQueue.empty()) {
+        if (!g_stop && pending.empty() && g_ttsQueue.empty()) {
             Sleep(10);
         }
     }
