@@ -1301,8 +1301,6 @@ int wmain(int argc, wchar_t** argv)
 
     if (useFile)
         FinalizeWaveFile(wavWriter);
-    if (useTtsFile)
-        FinalizeWaveFile(ttsWriter);
 
     CloseHandle(hDevice);
 
@@ -1313,6 +1311,9 @@ int wmain(int argc, wchar_t** argv)
     g_ttsCv.notify_all();
     pipeline.join();
     playback.join();
+
+    if (useTtsFile)
+        FinalizeWaveFile(ttsWriter);
     ClearAllQueues();
 
     pRenderClient->Release();
