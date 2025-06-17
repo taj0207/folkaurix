@@ -1196,7 +1196,23 @@ int wmain(int argc, wchar_t** argv)
     bool useTtsFile = false;
     if (opts.ttsOutputFile)
     {
-        if (!OpenWaveFile(ttsWriter, opts.ttsOutputFile, &renderFormat))
+#if API==Azure_API
+        WAVEFORMATEX ttsFormat = {};
+        ttsFormat.wFormatTag = WAVE_FORMAT_PCM;
+        ttsFormat.nChannels = 1;
+        ttsFormat.nSamplesPerSec = 16000;
+        ttsFormat.wBitsPerSample = 16;
+        ttsFormat.nBlockAlign =
+            ttsFormat.nChannels * ttsFormat.wBitsPerSample / 8;
+        ttsFormat.nAvgBytesPerSec =
+            ttsFormat.nSamplesPerSec * ttsFormat.nBlockAlign;
+        ttsFormat.cbSize = 0;
+        const WAVEFORMATEX* pTtsFormat = &ttsFormat;
+#else
+        const WAVEFORMATEX* pTtsFormat = &renderFormat;
+#endif
+
+        if (!OpenWaveFile(ttsWriter, opts.ttsOutputFile, pTtsFormat))
         {
             DPF(L"Failed to open TTS output file: %lu\n", GetLastError());
             pRenderClient->Release();
