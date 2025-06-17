@@ -258,42 +258,42 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
     ttsFmt.cbSize = 0;
 
     WAVEFORMATEX* pClosest = nullptr;
+    WAVEFORMATEX* pMix = nullptr;
+    const WAVEFORMATEX* pInitFormat = &ttsFmt;
+
     hr = pAudioClient->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED,
                                          &ttsFmt, &pClosest);
     if (hr == S_OK)
     {
-        renderFormat = ttsFmt;
+        pInitFormat = &ttsFmt;
+    }
+    else if (pClosest)
+    {
+        pInitFormat = pClosest;
     }
     else
     {
-        if (pClosest)
+        if (SUCCEEDED(pAudioClient->GetMixFormat(&pMix)))
         {
-            renderFormat = *pClosest;
-            CoTaskMemFree(pClosest);
+            pInitFormat = pMix;
         }
         else
         {
-            WAVEFORMATEX* pMix = nullptr;
-            if (SUCCEEDED(pAudioClient->GetMixFormat(&pMix)))
-            {
-                renderFormat = *pMix;
-                CoTaskMemFree(pMix);
-            }
-            else
-            {
-                pAudioClient->Release();
-                pRenderDevice->Release();
-                return false;
-            }
+            pAudioClient->Release();
+            pRenderDevice->Release();
+            return false;
         }
     }
+
+    // Copy the basic format fields for use outside this function
+    renderFormat = *pInitFormat;
 
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
-                                  &renderFormat,
+                                  pInitFormat,
                                   nullptr);
     if (FAILED(hr))
     {
@@ -302,6 +302,9 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
         pRenderDevice->Release();
         return false;
     }
+
+    if (pClosest && pClosest != pInitFormat) CoTaskMemFree(pClosest);
+    if (pMix && pMix != pInitFormat) CoTaskMemFree(pMix);
 
     hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     pAudioClient->SetEventHandle(hEvent);
