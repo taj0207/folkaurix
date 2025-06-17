@@ -451,12 +451,15 @@ static std::vector<char> ResampleToRenderFormat(const std::vector<char>& input,
     bool useFloat = IsFloatFormat(outFmt);
     float* floatDst = nullptr;
     int32_t* int32Dst = nullptr;
+    uint8_t* int24Dst = nullptr;
     int16_t* int16Dst = nullptr;
 
     if (useFloat)
         floatDst = reinterpret_cast<float*>(output.data());
     else if (outFmt.wBitsPerSample == 32)
         int32Dst = reinterpret_cast<int32_t*>(output.data());
+    else if (outFmt.wBitsPerSample == 24)
+        int24Dst = reinterpret_cast<uint8_t*>(output.data());
     else
         int16Dst = reinterpret_cast<int16_t*>(output.data());
 
@@ -480,6 +483,14 @@ static std::vector<char> ResampleToRenderFormat(const std::vector<char>& input,
             else if (outFmt.wBitsPerSample == 32)
             {
                 int32Dst[i * outFmt.nChannels + ch] = static_cast<int32_t>(sample) << 16;
+            }
+            else if (outFmt.wBitsPerSample == 24)
+            {
+                int32_t val = static_cast<int32_t>(sample) << 8;
+                size_t offset = (i * outFmt.nChannels + ch) * 3;
+                int24Dst[offset] = static_cast<uint8_t>(val & 0xFF);
+                int24Dst[offset + 1] = static_cast<uint8_t>((val >> 8) & 0xFF);
+                int24Dst[offset + 2] = static_cast<uint8_t>((val >> 16) & 0xFF);
             }
             else
             {
