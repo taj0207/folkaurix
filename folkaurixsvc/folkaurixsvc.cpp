@@ -257,13 +257,13 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
     }
 
     renderFormat = *pMix;
-
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
                                   pMix,
+
                                   nullptr);
     if (FAILED(hr))
     {
