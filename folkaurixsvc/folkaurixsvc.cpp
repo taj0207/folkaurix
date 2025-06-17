@@ -1,3 +1,12 @@
+// Cloud client library headers
+#define GOOGLE 1
+#define Azure_API 2
+#define AWS 3
+#define API Azure_API
+#if API == Azure_API
+#include <speechapi_cxx.h>
+#endif
+
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -17,25 +26,23 @@
 #include <mutex>
 #include <condition_variable>
 
-// Cloud client library headers
-#define GOOGLE 1
-#define Azure 2
-#define AWS 3
-
-#define API Azure
 
 #if API == GOOGLE
 #include <google/cloud/speech/speech_client.h>
 #include <google/cloud/translate/translation_client.h>
 #include <google/cloud/texttospeech/text_to_speech_client.h>
-#elif API == Azure
-#include <speechapi_cxx.h>
+#elif API == Azure_API
 #ifndef AZURE_KEY
-#define AZURE_KEY "CpW7Vs5l83ABD2wONlEK0Yc64izsptjySuM7EsGHSSj9n1jTEV7RJQQJ99BFAC8vTInXJ3w3AAAYACOGIUHf"
+#define AZURE_KEY "yK8ATu5vAZMKp4EXjFbAKueZSlw8iDDh02P00XE6c7vN1aWfGm8HJQQJ99BFAC8vTInXJ3w3AAAYACOGlx1o"
 #endif
 #ifndef AZURE_REGION
 #define AZURE_REGION "westus2"
 #endif
+
+#ifndef AZURE_ENDPOINT
+#define AZURE_ENDPOINT "https://westus2.api.cognitive.microsoft.com"
+#endif
+
 #endif
 #include <fstream>
 #include <vector>
@@ -54,6 +61,7 @@
 #define DPF_ENTER()
 #define DPF_EXIT()
 #define DPF(...)  ((void)0)
+#define DPF_RELEASE(...)  wprintf(__VA_ARGS__)
 #endif
 
 // Simple thread-safe queues for streaming audio to Google Cloud and
@@ -420,8 +428,8 @@ bool StartRealtimePipeline(const std::string& targetLang,
                 std::cerr << "Failed to write audio block, stream may have closed." << std::endl;
                 break;
             }
-            DPF(L"Sent block to gcs server stt (%ld)\n", block.size());
-            Sleep(10);
+            //DPF(L"Sent block to gcs server stt (%ld)\n", block.size());
+            Sleep(1);
         }
         streamer->WritesDone();
         DPF(L"Writer thread finished\n");
@@ -486,13 +494,10 @@ bool StartRealtimePipeline(const std::string& targetLang,
     tts.join();
 
     writer.join();
-    // Cancel the stream to unblock the reader if it is waiting
-   // streamer->Cancel();
     reader.join();
 
     auto status = streamer->Finish().get();
     if (!status.ok()) {
-        // status.message() 會告訴你詳細的錯誤原因
         std::cerr << "!!! Speech-to-Text stream finished with a FATAL error: "
                   << status.message() << std::endl;
     } else {
@@ -506,9 +511,11 @@ bool StartRealtimePipeline(const std::string& targetLang,
 }
 #endif
 
-#if API == Azure
+#if API == Azure_API
 bool StartAzurePipeline(const std::string& targetLang)
 {
+    std::cout << GetConsoleOutputCP() <<std::endl;
+    SetConsoleOutputCP(CP_UTF8);
     using namespace Microsoft::CognitiveServices::Speech;
     using namespace Microsoft::CognitiveServices::Speech::Translation;
     using namespace Microsoft::CognitiveServices::Speech::Audio;
@@ -533,39 +540,83 @@ bool StartAzurePipeline(const std::string& targetLang)
                 block = std::move(g_captureQueue.front());
                 g_captureQueue.pop();
             }
+           // DPF(L"Sent block to azure\n");
             pushStream->Write(reinterpret_cast<uint8_t*>(block.data()),
                               block.size());
+            Sleep(1);
         }
         pushStream->Close();
     });
 
+    recognizer->Recognizing.Connect([&](const TranslationRecognitionEventArgs& e) {
+            std::string lidResult = e.Result->Properties.GetProperty(PropertyId::SpeechServiceConnection_AutoDetectSourceLanguageResult);
+            std::cout << "Recognizing in Language = "<< lidResult << ": Text=" << e.Result->Text << std::endl;
+            for (const auto& it : e.Result->Translations)
+            {
+                std::cout<<"翻譯成: " << it.first.c_str() <<": " ;
+                std::wcout<< it.second.c_str() << std::endl;
+            }
+        });
+
+
     recognizer->Recognized.Connect([&](const TranslationRecognitionEventArgs& e) {
         auto result = e.Result;
+        if(result)
+            DPF(L"get result from azure, reaseon(%x)\n", result->Reason);
+        else
+            DPF(L"get no result from azure\n");
         if (result && result->Reason == ResultReason::TranslatedSpeech) {
             auto it = result->Translations.find(targetLang);
             if (it != result->Translations.end()) {
             auto text = it->second;
+            DPF(L"translated:%hs\n", text.c_str());
                 auto ttsConfig = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
-                ttsConfig->SetSpeechSynthesisLanguage(targetLang.c_str());
+                ttsConfig->SetSpeechSynthesisLanguage("zh-TW");
                 ttsConfig->SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat::Riff16Khz16BitMonoPcm);
                 auto outStream = AudioOutputStream::CreatePullStream();
                 auto audioCfg = AudioConfig::FromStreamOutput(outStream);
                 auto synthesizer = SpeechSynthesizer::FromConfig(ttsConfig, audioCfg);
-                synthesizer->SpeakTextAsync(text).get();
-
-                std::vector<char> pcm;
-                uint8_t buffer[1024];
-                while (auto read = outStream->Read(buffer, sizeof(buffer))) {
-                    pcm.insert(pcm.end(), buffer, buffer + read);
-                    if (read < sizeof(buffer)) break;
-                }
+                auto resultSpeak = synthesizer->SpeakTextAsync(text).get();
+                std::cout <<"result from tts:" << (int)resultSpeak->Reason << std::endl;
+                if(resultSpeak->Reason == ResultReason::SynthesizingAudioCompleted)
                 {
-                    std::lock_guard<std::mutex> lk(g_mutex);
-                    g_ttsQueue.push(std::move(pcm));
+                    std::cout << "speak translated\n";
+                    std::vector<char> pcm;
+                    uint8_t buffer[1024];
+                    while (auto read = outStream->Read(buffer, sizeof(buffer))) {
+                        pcm.insert(pcm.end(), buffer, buffer + read);
+                        if (read < sizeof(buffer)) break;
+                    }
+                    {
+                        std::lock_guard<std::mutex> lk(g_mutex);
+                        g_ttsQueue.push(std::move(pcm));
+                    }
+                    g_cv.notify_all();
                 }
-                g_cv.notify_all();
+                else if (resultSpeak->Reason == ResultReason::Canceled)
+                {
+                    auto cancellation = SpeechSynthesisCancellationDetails::FromResult(resultSpeak);
+                    std::cout << "CANCELED: Reason=" << (int)cancellation->Reason << std::endl;
+
+                    if (cancellation->Reason == CancellationReason::Error)
+                    {
+                        std::cout << "CANCELED: ErrorCode=" << (int)cancellation->ErrorCode << std::endl;
+                        std::cout << "CANCELED: ErrorDetails=[" << cancellation->ErrorDetails << "]" << std::endl;
+                        std::cout << "CANCELED: Did you update the subscription info?" << std::endl;
+                    }
+                }   
             }
         }
+    });
+
+    recognizer->SessionStarted.Connect([&](const SessionEventArgs& e)
+    {
+        std::cout << "Session started." << std::endl;
+    });
+
+    recognizer->SessionStopped.Connect([&](const SessionEventArgs& e)
+    {
+        std::cout << "Session stopped." << std::endl;
     });
 
     recognizer->StartContinuousRecognitionAsync().get();
@@ -634,9 +685,249 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
     DPF_EXIT();
 }
 
+void SpeechContinuousRecognitionWithFile()
+{
+
+    using namespace Microsoft::CognitiveServices::Speech;
+    using namespace Microsoft::CognitiveServices::Speech::Translation;
+    using namespace Microsoft::CognitiveServices::Speech::Audio;
+
+    // <SpeechContinuousRecognitionWithFile>
+    // Creates an instance of a speech config with specified endpoint and subscription key.
+    // Replace with your own endpoint and subscription key.
+    auto config = SpeechConfig::FromEndpoint(AZURE_ENDPOINT, AZURE_KEY);
+
+    // Creates a speech recognizer using file as audio input.
+    // Replace with your own audio file name.
+    auto audioInput = AudioConfig::FromWavFileInput("D:\\10.wav");
+    auto recognizer = SpeechRecognizer::FromConfig(config, audioInput);
+
+    // promise for synchronization of recognition end.
+    std::promise<void> recognitionEnd;
+
+    // Subscribes to events.
+    recognizer->Recognizing.Connect([] (const SpeechRecognitionEventArgs& e)
+    {
+        std::cout << "Recognizing: Text=" << e.Result->Text << std::endl;
+    });
+
+    recognizer->Recognized.Connect([] (const SpeechRecognitionEventArgs& e)
+    {
+        if (e.Result->Reason == ResultReason::RecognizedSpeech)
+        {
+            std::cout << "RECOGNIZED: Text=" << e.Result->Text << "\n"
+                 << "  Offset=" << e.Result->Offset() << "\n"
+                 << "  Duration=" << e.Result->Duration() << std::endl;
+        }
+        else if (e.Result->Reason == ResultReason::NoMatch)
+        {
+            std::cout << "NOMATCH: Speech could not be recognized." << std::endl;
+        }
+    });
+
+    recognizer->Canceled.Connect([&recognitionEnd](const SpeechRecognitionCanceledEventArgs& e)
+    {
+        std::cout << "CANCELED: Reason=" << (int)e.Reason << std::endl;
+
+        if (e.Reason == CancellationReason::Error)
+        {
+            std::cout << "CANCELED: ErrorCode=" << (int)e.ErrorCode << "\n"
+                 << "CANCELED: ErrorDetails=" << e.ErrorDetails << "\n"
+                 << "CANCELED: Did you update the subscription info?" << std::endl;
+
+            recognitionEnd.set_value(); // Notify to stop recognition.
+        }
+    });
+
+    recognizer->SessionStarted.Connect([&recognitionEnd](const SessionEventArgs& e)
+    {
+        std::cout << "Session started." << std::endl;
+    });
+
+    recognizer->SessionStopped.Connect([&recognitionEnd](const SessionEventArgs& e)
+    {
+        std::cout << "Session stopped." << std::endl;
+        recognitionEnd.set_value(); // Notify to stop recognition.
+    });
+
+    // Starts continuous recognition. Uses StopContinuousRecognitionAsync() to stop recognition.
+    recognizer->StartContinuousRecognitionAsync().get();
+
+    // Waits for recognition end.
+    recognitionEnd.get_future().get();
+
+    // Stops recognition.
+    recognizer->StopContinuousRecognitionAsync().get();
+    // </SpeechContinuousRecognitionWithFile>
+}
+
+
+// Speech synthesis to push audio output stream.
+void SpeechSynthesisToPushAudioOutputStream()
+{
+    using namespace Microsoft::CognitiveServices::Speech;
+    using namespace Microsoft::CognitiveServices::Speech::Audio;
+    // First, defines push audio output stream callback class that implements the
+    // PushAudioOutputStreamCallback interface. The sample here illustrates how to define such
+    // a callback that writes audio data to a byte vector.
+    // PushAudioOutputStreamSampleCallback implements PushAudioOutputStreamCallback interface
+    class PushAudioOutputStreamSampleCallback : public PushAudioOutputStreamCallback
+    {
+    public:
+        PushAudioOutputStreamSampleCallback()
+        {
+            m_audioData = std::make_shared<std::vector<uint8_t>>();
+        }
+
+        /// <summary>
+        /// The callback function which is invoked when the synthesizer has a output audio chunk to write out.
+        /// </summary>
+        /// <param name="dataBuffer">The output audio chunk sent by synthesizer.</param>
+        /// <param name="size">Size of the output audio chunk in bytes.</param>
+        /// <returns>Tell synthesizer how many bytes are received.</returns>
+        int Write(uint8_t* dataBuffer, uint32_t size) override
+        {
+            auto oldSize = m_audioData->size();
+            m_audioData->resize(oldSize + size);
+            memcpy(m_audioData->data() + oldSize, dataBuffer, size);
+
+            std::cout << size << " bytes received." << std::endl;
+
+            {
+                std::lock_guard<std::mutex> lk(g_mutex);
+                g_ttsQueue.push(std::move(pcm));
+            }
+            g_cv.notify_all();
+
+            return size;
+        }
+
+        /// <summary>
+        /// The callback which is invoked when the synthesizer is about to close the stream.
+        /// </summary>
+        void Close() override
+        {
+            std::cout << "Push audio output stream closed." << std::endl;
+        }
+
+        /// <summary>
+        /// Gets the received audio data size
+        /// </summary>
+        /// <returns>The received audio data size</returns>
+        size_t GetAudioSize()
+        {
+            return m_audioData->size();
+        }
+
+        /// <summary>
+        /// Gets the received audio data
+        /// </summary>
+        /// <returns>The received audio data in byte vector</returns>
+        std::shared_ptr<std::vector<uint8_t>> GetAudioData()
+        {
+            return m_audioData;
+        }
+
+    private:
+        std::shared_ptr<std::vector<uint8_t>> m_audioData;
+    };
+
+    // Creates an instance of a speech config with specified endpoint and subscription key.
+    // Replace with your own endpoint and subscription key.
+    auto config = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+
+    // Creates an instance of the callback class inherited from PushAudioOutputStreamCallback.
+    auto callback = std::make_shared<PushAudioOutputStreamSampleCallback>();
+
+    // Creates an audio out stream from the callback.
+    auto stream = AudioOutputStream::CreatePushStream(callback);
+
+    // Creates a speech synthesizer using audio stream output.
+    auto streamConfig = AudioConfig::FromStreamOutput(stream);
+    auto synthesizer = SpeechSynthesizer::FromConfig(config, streamConfig);
+
+    while (true)
+    {
+        // Receives a text from console input and synthesize it to push audio output stream.
+        std::cout << "Enter some text that you want to synthesize, or enter empty text to exit." << std::endl;
+        std::cout << "> ";
+        std::string text;
+        getline(std::cin, text);
+        if (text.empty())
+        {
+            break;
+        }
+
+        auto result = synthesizer->SpeakTextAsync(text).get();
+
+        // Checks result.
+        if (result->Reason == ResultReason::SynthesizingAudioCompleted)
+        {
+            std::cout << "Speech synthesized for text [" << text << "], and the audio was written to output stream." << std::endl;
+        }
+        else if (result->Reason == ResultReason::Canceled)
+        {
+            auto cancellation = SpeechSynthesisCancellationDetails::FromResult(result);
+            std::cout << "CANCELED: Reason=" << (int)cancellation->Reason << std::endl;
+
+            if (cancellation->Reason == CancellationReason::Error)
+            {
+                std::cout << "CANCELED: ErrorCode=" << (int)cancellation->ErrorCode << std::endl;
+                std::cout << "CANCELED: ErrorDetails=[" << cancellation->ErrorDetails << "]" << std::endl;
+                std::cout << "CANCELED: Did you update the subscription info?" << std::endl;
+            }
+        }
+    }
+
+    std::cout << "Totally " << callback->GetAudioSize() << " bytes received." << std::endl;
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     DPF_ENTER();
+
+    const wchar_t* outputFile = nullptr;
+#if API==Azure_API
+    const wchar_t* azureInputFile = nullptr;
+#endif
+    std::string targetLang = "zh-Hant"; // default translation target
+    for (int i = 1; i < argc; ++i)
+    {
+        if ((wcscmp(argv[i], L"-f") == 0 || wcscmp(argv[i], L"--file") == 0) &&
+            i + 1 < argc)
+        {
+            outputFile = argv[++i];
+        }
+        else if ((wcscmp(argv[i], L"-l") == 0 ||
+                  wcscmp(argv[i], L"--lang") == 0) &&
+                 i + 1 < argc)
+        {
+            char buf[64] = {};
+            wcstombs(buf, argv[++i], sizeof(buf) - 1);
+            targetLang = buf;
+        }
+#if API==Azure_API
+        else if ((wcscmp(argv[i], L"-af") == 0 || wcscmp(argv[i], L"--azurefile") == 0) &&
+            i + 1 < argc)
+        {
+            azureInputFile = argv[++i];
+            wprintf(L"input azure wave file (%s) for test\n", azureInputFile);
+        }
+        else if ((wcscmp(argv[i], L"-tts") == 0 || wcscmp(argv[i], L"--texttospeech") == 0))
+        {
+            SpeechSynthesisToPushAudioOutputStream();
+            return 0;
+        }
+#endif        
+    }
+#if API==Azure_API   
+    if(azureInputFile)
+    {
+        wprintf(L"Process %s\n", azureInputFile);
+        SpeechContinuousRecognitionWithFile();
+        return 0;
+    }
+#endif  
     g_stop = false;
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr))
@@ -728,24 +1019,7 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
-    const wchar_t* outputFile = nullptr;
-    std::string targetLang = "zh"; // default translation target
-    for (int i = 1; i < argc; ++i)
-    {
-        if ((wcscmp(argv[i], L"-f") == 0 || wcscmp(argv[i], L"--file") == 0) &&
-            i + 1 < argc)
-        {
-            outputFile = argv[++i];
-        }
-        else if ((wcscmp(argv[i], L"-l") == 0 ||
-                  wcscmp(argv[i], L"--lang") == 0) &&
-                 i + 1 < argc)
-        {
-            char buf[64] = {};
-            wcstombs(buf, argv[++i], sizeof(buf) - 1);
-            targetLang = buf;
-        }
-    }
+
 
     IMMDevice* pRenderDevice = nullptr;
     hr = pCollection->Item(choice, &pRenderDevice);
@@ -867,7 +1141,7 @@ int wmain(int argc, wchar_t** argv)
 #if API==GOOGLE
     auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
     std::thread pipeline(StartRealtimePipeline, targetLang, ttsEncoding, renderFormat.nSamplesPerSec);
-#elif API == Azure
+#elif API == Azure_API
     std::thread pipeline(StartAzurePipeline, targetLang);
 #endif
 
