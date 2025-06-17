@@ -231,7 +231,11 @@ int main(int argc, char* argv[]) {
                 auto text = it->second;
                 auto ttsConfig = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
                 ttsConfig->SetSpeechSynthesisLanguage(targetLang.c_str());
-                ttsConfig->SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat::Riff16Khz16BitMonoPcm);
+                // Use raw PCM to avoid embedding a WAV header, which
+                // interferes with playback when the bytes are fed directly
+                // to the audio device.
+                ttsConfig->SetSpeechSynthesisOutputFormat(
+                    SpeechSynthesisOutputFormat::Raw16Khz16BitMonoPcm);
                 auto ttsStream = AudioOutputStream::CreatePullStream();
                 auto ttsAudio = AudioConfig::FromStreamOutput(ttsStream);
                 auto synthesizer = SpeechSynthesizer::FromConfig(ttsConfig, ttsAudio);

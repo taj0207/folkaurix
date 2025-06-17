@@ -785,7 +785,11 @@ bool StartAzurePipeline(const std::string& targetLang)
             DPF(L"translated:%hs\n", text.c_str());
                 auto ttsConfig = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
                 ttsConfig->SetSpeechSynthesisLanguage("zh-TW");
-                ttsConfig->SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat::Riff16Khz16BitMonoPcm);
+                // Request raw PCM output so we can directly feed the bytes to
+                // the playback thread. The Riff* formats include a WAV header
+                // which resulted in noise being rendered.
+                ttsConfig->SetSpeechSynthesisOutputFormat(
+                    SpeechSynthesisOutputFormat::Raw16Khz16BitMonoPcm);
                 auto outStream = AudioOutputStream::CreatePullStream();
                 auto audioCfg = AudioConfig::FromStreamOutput(outStream);
                 auto synthesizer = SpeechSynthesizer::FromConfig(ttsConfig, audioCfg);
