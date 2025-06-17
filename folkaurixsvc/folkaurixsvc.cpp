@@ -446,6 +446,17 @@ static std::vector<char> ResampleToRenderFormat(const std::vector<char>& input,
     std::vector<char> output(dstSamples * outFmt.nBlockAlign);
 
     bool useFloat = IsFloatFormat(outFmt);
+    float* floatDst = nullptr;
+    int32_t* int32Dst = nullptr;
+    int16_t* int16Dst = nullptr;
+
+    if (useFloat)
+        floatDst = reinterpret_cast<float*>(output.data());
+    else if (outFmt.wBitsPerSample == 32)
+        int32Dst = reinterpret_cast<int32_t*>(output.data());
+    else
+        int16Dst = reinterpret_cast<int16_t*>(output.data());
+
     for (size_t i = 0; i < dstSamples; ++i)
     {
         double pos = static_cast<double>(i) * srcRate / outFmt.nSamplesPerSec;
@@ -461,18 +472,15 @@ static std::vector<char> ResampleToRenderFormat(const std::vector<char>& input,
         {
             if (useFloat)
             {
-                float* dst = reinterpret_cast<float*>(output.data());
-                dst[i * outFmt.nChannels + ch] = static_cast<float>(sample / 32768.0);
+                floatDst[i * outFmt.nChannels + ch] = static_cast<float>(sample / 32768.0);
             }
             else if (outFmt.wBitsPerSample == 32)
             {
-                int32_t* dst = reinterpret_cast<int32_t*>(output.data());
-                dst[i * outFmt.nChannels + ch] = static_cast<int32_t>(sample) << 16;
+                int32Dst[i * outFmt.nChannels + ch] = static_cast<int32_t>(sample) << 16;
             }
-            else // 16-bit PCM
+            else
             {
-                int16_t* dst = reinterpret_cast<int16_t*>(output.data());
-                dst[i * outFmt.nChannels + ch] = static_cast<int16_t>(sample);
+                int16Dst[i * outFmt.nChannels + ch] = static_cast<int16_t>(sample);
             }
         }
     }
