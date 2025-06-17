@@ -260,6 +260,14 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
     if (fmtSize > sizeof(renderFormat))
         fmtSize = sizeof(renderFormat);
     memcpy(&renderFormat, pMix, fmtSize);
+
+    DPF(L"Render format: %u channels, %u Hz, %u bits per sample\n",
+        renderFormat.Format.nChannels,
+        renderFormat.Format.nSamplesPerSec,
+        renderFormat.Format.wBitsPerSample);
+    DPF(L"Rate mode: AvgBytesPerSec=%u, BlockAlign=%u\n",
+        renderFormat.Format.nAvgBytesPerSec,
+        renderFormat.Format.nBlockAlign);
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
