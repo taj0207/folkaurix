@@ -1271,21 +1271,10 @@ int wmain(int argc, wchar_t** argv)
     bool useTtsFile = false;
     if (opts.ttsOutputFile)
     {
-#if API==Azure_API
-        WAVEFORMATEX ttsFormat = {};
-        ttsFormat.wFormatTag = WAVE_FORMAT_PCM;
-        ttsFormat.nChannels = 1;
-        ttsFormat.nSamplesPerSec = 16000;
-        ttsFormat.wBitsPerSample = 16;
-        ttsFormat.nBlockAlign =
-            ttsFormat.nChannels * ttsFormat.wBitsPerSample / 8;
-        ttsFormat.nAvgBytesPerSec =
-            ttsFormat.nSamplesPerSec * ttsFormat.nBlockAlign;
-        ttsFormat.cbSize = 0;
-        const WAVEFORMATEX* pTtsFormat = &ttsFormat;
-#else
+        // The audio written by the playback thread is resampled to the
+        // device's mix format. Use the same format for the output WAV file
+        // to avoid mismatched headers that would cause slowed playback.
         const WAVEFORMATEX* pTtsFormat = &renderFormat;
-#endif
 
         if (!OpenWaveFile(ttsWriter, opts.ttsOutputFile, pTtsFormat))
         {
