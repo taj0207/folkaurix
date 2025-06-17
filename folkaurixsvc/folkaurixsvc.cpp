@@ -25,6 +25,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
 
 #if API == GOOGLE
@@ -72,7 +73,7 @@ static std::queue<std::string> g_translationQueue;
 static std::queue<std::vector<char>> g_ttsQueue;
 static std::mutex g_mutex;
 static std::condition_variable g_cv;
-static bool g_stop = false;
+static std::atomic<bool> g_stop(false);
 
 void ClearAllQueues()
 {
@@ -81,6 +82,186 @@ void ClearAllQueues()
     while (!g_transcriptQueue.empty()) g_transcriptQueue.pop();
     while (!g_translationQueue.empty()) g_translationQueue.pop();
     while (!g_ttsQueue.empty()) g_ttsQueue.pop();
+}
+
+struct ProgramOptions
+{
+    const wchar_t* outputFile = nullptr;
+#if API==Azure_API
+    const wchar_t* azureInputFile = nullptr;
+    bool ttsOnly = false;
+#endif
+    std::string targetLang = "zh-Hant";
+};
+
+static bool ParseCommandLine(int argc, wchar_t** argv, ProgramOptions& opts)
+{
+    for (int i = 1; i < argc; ++i)
+    {
+        if ((wcscmp(argv[i], L"-f") == 0 || wcscmp(argv[i], L"--file") == 0) &&
+            i + 1 < argc)
+        {
+            opts.outputFile = argv[++i];
+        }
+        else if ((wcscmp(argv[i], L"-l") == 0 || wcscmp(argv[i], L"--lang") == 0) &&
+                 i + 1 < argc)
+        {
+            char buf[64] = {};
+            wcstombs(buf, argv[++i], sizeof(buf) - 1);
+            opts.targetLang = buf;
+        }
+#if API==Azure_API
+        else if ((wcscmp(argv[i], L"-af") == 0 || wcscmp(argv[i], L"--azurefile") == 0) &&
+                 i + 1 < argc)
+        {
+            opts.azureInputFile = argv[++i];
+        }
+        else if ((wcscmp(argv[i], L"-tts") == 0 || wcscmp(argv[i], L"--texttospeech") == 0))
+        {
+            opts.ttsOnly = true;
+        }
+#endif
+    }
+    return true;
+}
+
+static bool InitializeRenderDevice(IAudioClient** ppClient,
+                                   IAudioRenderClient** ppRender,
+                                   WAVEFORMATEX& renderFormat,
+                                   HANDLE& hEvent,
+                                   IMMDevice** ppDevice)
+{
+    IMMDeviceEnumerator* pEnumerator = nullptr;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
+                                  CLSCTX_ALL, IID_PPV_ARGS(&pEnumerator));
+    if (FAILED(hr))
+    {
+        DPF(L"Failed to create device enumerator: 0x%08lx\n", hr);
+        return false;
+    }
+
+    IMMDeviceCollection* pCollection = nullptr;
+    hr = pEnumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pCollection);
+    if (FAILED(hr))
+    {
+        DPF(L"EnumAudioEndpoints failed: 0x%08lx\n", hr);
+        pEnumerator->Release();
+        return false;
+    }
+
+    UINT count = 0;
+    hr = pCollection->GetCount(&count);
+    if (FAILED(hr))
+    {
+        DPF(L"GetCount failed: 0x%08lx\n", hr);
+        pCollection->Release();
+        pEnumerator->Release();
+        return false;
+    }
+
+    for (UINT i = 0; i < count; ++i)
+    {
+        IMMDevice* pDevice = nullptr;
+        hr = pCollection->Item(i, &pDevice);
+        if (SUCCEEDED(hr))
+        {
+            IPropertyStore* pStore = nullptr;
+            hr = pDevice->OpenPropertyStore(STGM_READ, &pStore);
+            if (SUCCEEDED(hr))
+            {
+                PROPVARIANT varName;
+                PropVariantInit(&varName);
+                hr = pStore->GetValue(PKEY_Device_FriendlyName, &varName);
+                if (SUCCEEDED(hr))
+                {
+                    wprintf(L"%u: %s\n", i, varName.pwszVal);
+                    PropVariantClear(&varName);
+                }
+                pStore->Release();
+            }
+            pDevice->Release();
+        }
+    }
+
+    wprintf(L"Select device index: ");
+    UINT choice = 0;
+    wscanf(L"%u", &choice);
+    if (choice >= count)
+    {
+        wprintf(L"Invalid choice\n");
+        pCollection->Release();
+        pEnumerator->Release();
+        return false;
+    }
+
+    IMMDevice* pRenderDevice = nullptr;
+    hr = pCollection->Item(choice, &pRenderDevice);
+    pCollection->Release();
+    pEnumerator->Release();
+    if (FAILED(hr))
+    {
+        wprintf(L"Failed to get device: 0x%08lx\n", hr);
+        return false;
+    }
+
+    IAudioClient* pAudioClient = nullptr;
+    hr = pRenderDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                                 (void**)&pAudioClient);
+    if (FAILED(hr))
+    {
+        DPF(L"Activate IAudioClient failed: 0x%08lx\n", hr);
+        pRenderDevice->Release();
+        return false;
+    }
+
+    WAVEFORMATEX* pwfx = nullptr;
+    hr = pAudioClient->GetMixFormat(&pwfx);
+    if (FAILED(hr))
+    {
+        DPF(L"GetMixFormat failed: 0x%08lx\n", hr);
+        pAudioClient->Release();
+        pRenderDevice->Release();
+        return false;
+    }
+
+    renderFormat = *pwfx;
+
+    REFERENCE_TIME bufferDuration = 10000000; // 1 second
+    hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
+                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+                                  bufferDuration,
+                                  0,
+                                  pwfx,
+                                  nullptr);
+    CoTaskMemFree(pwfx);
+    if (FAILED(hr))
+    {
+        DPF(L"Audio client initialize failed: 0x%08lx\n", hr);
+        pAudioClient->Release();
+        pRenderDevice->Release();
+        return false;
+    }
+
+    hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    pAudioClient->SetEventHandle(hEvent);
+
+    IAudioRenderClient* pRenderClient = nullptr;
+    hr = pAudioClient->GetService(__uuidof(IAudioRenderClient), (void**)&pRenderClient);
+    if (FAILED(hr))
+    {
+        DPF(L"GetService IAudioRenderClient failed: 0x%08lx\n", hr);
+        CloseHandle(hEvent);
+        pAudioClient->Release();
+        pRenderDevice->Release();
+        return false;
+    }
+
+    if (ppClient) *ppClient = pAudioClient;
+    if (ppRender) *ppRender = pRenderClient;
+    if (ppDevice) *ppDevice = pRenderDevice;
+    else pRenderDevice->Release();
+
+    return true;
 }
 
 bool ConvertRawToWav(const wchar_t* rawPath,
@@ -685,6 +866,53 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
     DPF_EXIT();
 }
 
+// Captures audio from SysVAD loopback using IOCTL_SYSVAD_GET_LOOPBACK_DATA.
+static void CaptureThread(HANDLE hDevice, bool useFile,
+                          WaveFileWriter* pWriter)
+{
+    BYTE buffer[4096];
+    DWORD bytesReturned = 0;
+    while (!g_stop)
+    {
+        if (GetAsyncKeyState(VK_F9) & 0x8000)
+        {
+            g_stop = true;
+            g_cv.notify_all();
+            ClearAllQueues();
+            break;
+        }
+
+        if (!DeviceIoControl(hDevice,
+                             IOCTL_SYSVAD_GET_LOOPBACK_DATA,
+                             nullptr,
+                             0,
+                             buffer,
+                             static_cast<DWORD>(sizeof(buffer)),
+                             &bytesReturned,
+                             nullptr))
+        {
+            bytesReturned = 0;
+        }
+
+        if (bytesReturned > 0)
+        {
+            if (useFile && pWriter)
+            {
+                WriteWaveData(*pWriter, buffer, bytesReturned);
+            }
+
+            std::vector<char> data(buffer, buffer + bytesReturned);
+            {
+                std::lock_guard<std::mutex> lk(g_mutex);
+                g_captureQueue.push(std::move(data));
+            }
+            g_cv.notify_all();
+        }
+
+        Sleep(10);
+    }
+}
+
 void SpeechContinuousRecognitionWithFile()
 {
 
@@ -791,14 +1019,14 @@ void SpeechSynthesisToPushAudioOutputStream()
             m_audioData->resize(oldSize + size);
             memcpy(m_audioData->data() + oldSize, dataBuffer, size);
 
-            std::cout << size << " bytes received." << std::endl;
-
+            std::vector<char> pcm(dataBuffer, dataBuffer + size);
             {
                 std::lock_guard<std::mutex> lk(g_mutex);
                 g_ttsQueue.push(std::move(pcm));
             }
             g_cv.notify_all();
 
+            std::cout << size << " bytes received." << std::endl;
             return size;
         }
 
@@ -886,48 +1114,17 @@ int wmain(int argc, wchar_t** argv)
 {
     DPF_ENTER();
 
-    const wchar_t* outputFile = nullptr;
+    ProgramOptions opts;
+    ParseCommandLine(argc, argv, opts);
 #if API==Azure_API
-    const wchar_t* azureInputFile = nullptr;
-#endif
-    std::string targetLang = "zh-Hant"; // default translation target
-    for (int i = 1; i < argc; ++i)
+    if (opts.azureInputFile)
     {
-        if ((wcscmp(argv[i], L"-f") == 0 || wcscmp(argv[i], L"--file") == 0) &&
-            i + 1 < argc)
-        {
-            outputFile = argv[++i];
-        }
-        else if ((wcscmp(argv[i], L"-l") == 0 ||
-                  wcscmp(argv[i], L"--lang") == 0) &&
-                 i + 1 < argc)
-        {
-            char buf[64] = {};
-            wcstombs(buf, argv[++i], sizeof(buf) - 1);
-            targetLang = buf;
-        }
-#if API==Azure_API
-        else if ((wcscmp(argv[i], L"-af") == 0 || wcscmp(argv[i], L"--azurefile") == 0) &&
-            i + 1 < argc)
-        {
-            azureInputFile = argv[++i];
-            wprintf(L"input azure wave file (%s) for test\n", azureInputFile);
-        }
-        else if ((wcscmp(argv[i], L"-tts") == 0 || wcscmp(argv[i], L"--texttospeech") == 0))
-        {
-            SpeechSynthesisToPushAudioOutputStream();
-            return 0;
-        }
-#endif        
-    }
-#if API==Azure_API   
-    if(azureInputFile)
-    {
-        wprintf(L"Process %s\n", azureInputFile);
+        wprintf(L"Process %s\n", opts.azureInputFile);
         SpeechContinuousRecognitionWithFile();
         return 0;
     }
-#endif  
+#endif
+
     g_stop = false;
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr))
@@ -937,131 +1134,39 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
-    IMMDeviceEnumerator* pEnumerator = nullptr;
-    hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                          IID_PPV_ARGS(&pEnumerator));
-    if (FAILED(hr))
-    {
-        DPF(L"Failed to create device enumerator: 0x%08lx\n", hr);
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-
-    IMMDeviceCollection* pCollection = nullptr;
-    hr = pEnumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pCollection);
-    if (FAILED(hr))
-    {
-        DPF(L"EnumAudioEndpoints failed: 0x%08lx\n", hr);
-        pEnumerator->Release();
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-
-    UINT count = 0;
-    hr = pCollection->GetCount(&count);
-    if (FAILED(hr))
-    {
-        DPF(L"GetCount failed: 0x%08lx\n", hr);
-        pCollection->Release();
-        pEnumerator->Release();
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-    for (UINT i = 0; i < count; ++i)
-    {
-        IMMDevice* pDevice = nullptr;
-        hr = pCollection->Item(i, &pDevice);
-        if (SUCCEEDED(hr))
-        {
-            IPropertyStore* pStore = nullptr;
-            hr = pDevice->OpenPropertyStore(STGM_READ, &pStore);
-            if (SUCCEEDED(hr))
-            {
-                PROPVARIANT varName;
-                PropVariantInit(&varName);
-                hr = pStore->GetValue(PKEY_Device_FriendlyName, &varName);
-                if (SUCCEEDED(hr))
-                {
-                    wprintf(L"%u: %s\n", i, varName.pwszVal);
-                    PropVariantClear(&varName);
-                }
-                else
-                {
-                    wprintf(L"GetValue for device %u failed: 0x%08lx\n", i, hr);
-                }
-                pStore->Release();
-            }
-            else
-            {
-                wprintf(L"OpenPropertyStore for device %u failed: 0x%08lx\n", i, hr);
-            }
-            pDevice->Release();
-        }
-        else
-        {
-            wprintf(L"Failed to get device at index %u: 0x%08lx\n", i, hr);
-        }
-    }
-
-    wprintf(L"Select device index: ");
-    UINT choice = 0;
-    wscanf(L"%u", &choice);
-    if (choice >= count)
-    {
-        wprintf(L"Invalid choice\n");
-        pCollection->Release();
-        pEnumerator->Release();
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-
-
-
+    WAVEFORMATEX renderFormat = {};
     IMMDevice* pRenderDevice = nullptr;
-    hr = pCollection->Item(choice, &pRenderDevice);
-    pCollection->Release();
-    pEnumerator->Release();
-    if (FAILED(hr))
-    {
-        wprintf(L"Failed to get device: 0x%08lx\n", hr);
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-
     IAudioClient* pAudioClient = nullptr;
-    hr = pRenderDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&pAudioClient);
-    if (FAILED(hr))
+    IAudioRenderClient* pRenderClient = nullptr;
+    HANDLE hAudioEvent = nullptr;
+
+    if (!InitializeRenderDevice(&pAudioClient, &pRenderClient, renderFormat,
+                                hAudioEvent, &pRenderDevice))
     {
-        DPF(L"Activate IAudioClient failed: 0x%08lx\n", hr);
-        pRenderDevice->Release();
         CoUninitialize();
         DPF_EXIT();
         return 1;
     }
 
-    WAVEFORMATEX* pwfx = nullptr;
-    hr = pAudioClient->GetMixFormat(&pwfx);
-    if (FAILED(hr))
+#if API==Azure_API
+    if (opts.ttsOnly)
     {
-        DPF(L"GetMixFormat failed: 0x%08lx\n", hr);
+        std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
+        SpeechSynthesisToPushAudioOutputStream();
+        g_stop = true;
+        g_cv.notify_all();
+        playback.join();
+        ClearAllQueues();
+        pRenderClient->Release();
+        CloseHandle(hAudioEvent);
         pAudioClient->Release();
         pRenderDevice->Release();
         CoUninitialize();
         DPF_EXIT();
-        return 1;
+        return 0;
     }
+#endif
 
-    DPF(L"Render device format: %u channels, %u-bit, %u Hz\n",
-            pwfx->nChannels, pwfx->wBitsPerSample, pwfx->nSamplesPerSec);
-
-    WAVEFORMATEX renderFormat = *pwfx;
-
-    // SysVAD loopback streams audio in a fixed 1ch/16-bit/16kHz format.
     WAVEFORMATEX captureFormat = {};
     captureFormat.wFormatTag = WAVE_FORMAT_PCM;
     captureFormat.nChannels = 1;
@@ -1073,41 +1178,6 @@ int wmain(int argc, wchar_t** argv)
         captureFormat.nSamplesPerSec * captureFormat.nBlockAlign;
     captureFormat.cbSize = 0;
 
-    REFERENCE_TIME bufferDuration = 10000000; // 1 second
-    hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-                                  bufferDuration,
-                                  0,
-                                  pwfx,
-                                  nullptr);
-    if (FAILED(hr))
-    {
-        DPF(L"Audio client initialize failed: 0x%08lx\n", hr);
-        pAudioClient->Release();
-        pRenderDevice->Release();
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-    CoTaskMemFree(pwfx);
-    pwfx = nullptr;
-
-    HANDLE hAudioEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    pAudioClient->SetEventHandle(hAudioEvent);
-
-    IAudioRenderClient* pRenderClient = nullptr;
-    hr = pAudioClient->GetService(__uuidof(IAudioRenderClient), (void**)&pRenderClient);
-    if (FAILED(hr))
-    {
-        DPF(L"GetService IAudioRenderClient failed: 0x%08lx\n", hr);
-        CloseHandle(hAudioEvent);
-        pAudioClient->Release();
-        pRenderDevice->Release();
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-
     UINT32 bufferFrameCount = 0;
     pAudioClient->GetBufferSize(&bufferFrameCount);
     DPF(L"GetBufferSize: 0x%08lx\n", bufferFrameCount);
@@ -1117,18 +1187,28 @@ int wmain(int argc, wchar_t** argv)
     if (hDevice == INVALID_HANDLE_VALUE)
     {
         DPF(L"Failed to open device: %lu\n", GetLastError());
+        pRenderClient->Release();
+        CloseHandle(hAudioEvent);
+        pAudioClient->Release();
+        pRenderDevice->Release();
+        CoUninitialize();
         DPF_EXIT();
         return 1;
     }
 
     WaveFileWriter wavWriter;
     bool useFile = false;
-    if (outputFile)
+    if (opts.outputFile)
     {
-        if (!OpenWaveFile(wavWriter, outputFile, &captureFormat))
+        if (!OpenWaveFile(wavWriter, opts.outputFile, &captureFormat))
         {
             DPF(L"Failed to open output file: %lu\n", GetLastError());
             CloseHandle(hDevice);
+            pRenderClient->Release();
+            CloseHandle(hAudioEvent);
+            pAudioClient->Release();
+            pRenderDevice->Release();
+            CoUninitialize();
             DPF_EXIT();
             return 1;
         }
@@ -1140,54 +1220,15 @@ int wmain(int argc, wchar_t** argv)
     std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
 #if API==GOOGLE
     auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
-    std::thread pipeline(StartRealtimePipeline, targetLang, ttsEncoding, renderFormat.nSamplesPerSec);
+    std::thread pipeline(StartRealtimePipeline, opts.targetLang, ttsEncoding,
+                         renderFormat.nSamplesPerSec);
 #elif API == Azure_API
-    std::thread pipeline(StartAzurePipeline, targetLang);
+    std::thread pipeline(StartAzurePipeline, opts.targetLang);
 #endif
 
-    BYTE buffer[4096];
-    DWORD bytesReturned = 0;
-    bool stopRequested = false;
-    while (!stopRequested)
-    {
-        if (GetAsyncKeyState(VK_F9) & 0x8000)
-        {
-            stopRequested = true;
-            g_stop = true;
-            g_cv.notify_all();
-            ClearAllQueues();
-            continue;
-        }
+    std::thread capture(CaptureThread, hDevice, useFile, useFile ? &wavWriter : nullptr);
 
-        if (!DeviceIoControl(hDevice,
-                             IOCTL_SYSVAD_GET_LOOPBACK_DATA,
-                             nullptr,
-                             0,
-                             buffer,
-                             static_cast<DWORD>(sizeof(buffer)),
-                             &bytesReturned,
-                             nullptr))
-        {
-            bytesReturned = 0;
-        }
-
-        if (bytesReturned > 0)
-        {
-            if (useFile)
-            {
-                WriteWaveData(wavWriter, buffer, bytesReturned);
-            }
-
-            std::vector<char> data(buffer, buffer + bytesReturned);
-            {
-                std::lock_guard<std::mutex> lk(g_mutex);
-                g_captureQueue.push(std::move(data));
-            }
-            g_cv.notify_all();
-        }
-
-        Sleep(10);
-    }
+    capture.join();
 
     if (useFile)
         FinalizeWaveFile(wavWriter);
