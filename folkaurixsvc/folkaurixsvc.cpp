@@ -244,26 +244,30 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
         return false;
     }
 
-    WAVEFORMATEX* pwfx = nullptr;
-    hr = pAudioClient->GetMixFormat(&pwfx);
-    if (FAILED(hr))
-    {
-        DPF(L"GetMixFormat failed: 0x%08lx\n", hr);
-        pAudioClient->Release();
-        pRenderDevice->Release();
-        return false;
-    }
+    // Initialize the audio client using the same format as the
+    // text-to-speech output (16 kHz / 16-bit / mono). The Windows
+    // audio engine will automatically convert this to the device's
+    // mix format.
+    WAVEFORMATEX ttsFmt = {};
+    ttsFmt.wFormatTag = WAVE_FORMAT_PCM;
+    ttsFmt.nChannels = 1;
+    ttsFmt.nSamplesPerSec = 16000;
+    ttsFmt.wBitsPerSample = 16;
+    ttsFmt.nBlockAlign =
+        ttsFmt.nChannels * ttsFmt.wBitsPerSample / 8;
+    ttsFmt.nAvgBytesPerSec =
+        ttsFmt.nSamplesPerSec * ttsFmt.nBlockAlign;
+    ttsFmt.cbSize = 0;
 
-    renderFormat = *pwfx;
+    renderFormat = ttsFmt;
 
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
-                                  pwfx,
+                                  &ttsFmt,
                                   nullptr);
-    CoTaskMemFree(pwfx);
     if (FAILED(hr))
     {
         DPF(L"Audio client initialize failed: 0x%08lx\n", hr);
