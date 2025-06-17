@@ -48,6 +48,8 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <iostream>
+#include <limits>
 
 
 #ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
@@ -68,20 +70,41 @@
 // Simple thread-safe queues for streaming audio to Google Cloud and
 // feeding synthesized audio back to the render device.
 static std::queue<std::vector<char>> g_captureQueue;
+static std::mutex g_captureMutex;
+static std::condition_variable g_captureCv;
+
 static std::queue<std::string> g_transcriptQueue;
+static std::mutex g_transcriptMutex;
+static std::condition_variable g_transcriptCv;
+
 static std::queue<std::string> g_translationQueue;
+static std::mutex g_translationMutex;
+static std::condition_variable g_translationCv;
+
 static std::queue<std::vector<char>> g_ttsQueue;
-static std::mutex g_mutex;
-static std::condition_variable g_cv;
+static std::mutex g_ttsMutex;
+static std::condition_variable g_ttsCv;
+
 static std::atomic<bool> g_stop(false);
 
 void ClearAllQueues()
 {
-    std::lock_guard<std::mutex> lk(g_mutex);
-    while (!g_captureQueue.empty()) g_captureQueue.pop();
-    while (!g_transcriptQueue.empty()) g_transcriptQueue.pop();
-    while (!g_translationQueue.empty()) g_translationQueue.pop();
-    while (!g_ttsQueue.empty()) g_ttsQueue.pop();
+    {
+        std::lock_guard<std::mutex> lk(g_captureMutex);
+        while (!g_captureQueue.empty()) g_captureQueue.pop();
+    }
+    {
+        std::lock_guard<std::mutex> lk(g_transcriptMutex);
+        while (!g_transcriptQueue.empty()) g_transcriptQueue.pop();
+    }
+    {
+        std::lock_guard<std::mutex> lk(g_translationMutex);
+        while (!g_translationQueue.empty()) g_translationQueue.pop();
+    }
+    {
+        std::lock_guard<std::mutex> lk(g_ttsMutex);
+        while (!g_ttsQueue.empty()) g_ttsQueue.pop();
+    }
 }
 
 struct ProgramOptions
@@ -186,6 +209,7 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
     wprintf(L"Select device index: ");
     UINT choice = 0;
     wscanf(L"%u", &choice);
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     if (choice >= count)
     {
         wprintf(L"Invalid choice\n");
@@ -420,8 +444,8 @@ void TranslationThread(const std::string& targetLang)
     while (true) {
         std::string transcript;
         {
-            std::unique_lock<std::mutex> lk(g_mutex);
-            g_cv.wait(lk, [] { return !g_transcriptQueue.empty() || g_stop; });
+            std::unique_lock<std::mutex> lk(g_transcriptMutex);
+            g_transcriptCv.wait(lk, [] { return !g_transcriptQueue.empty() || g_stop; });
             if (g_stop && g_transcriptQueue.empty()) break;
             transcript = std::move(g_transcriptQueue.front());
             g_transcriptQueue.pop();
@@ -438,10 +462,10 @@ void TranslationThread(const std::string& targetLang)
             translated = resp->translations(0).translated_text();
 
         {
-            std::lock_guard<std::mutex> lk(g_mutex);
+            std::lock_guard<std::mutex> lk(g_translationMutex);
             g_translationQueue.push(std::move(translated));
         }
-        g_cv.notify_all();
+        g_translationCv.notify_one();
     }
     DPF_EXIT();
 }
@@ -460,8 +484,8 @@ void TtsThread(const std::string& targetLang,
     while (true) {
         std::string text;
         {
-            std::unique_lock<std::mutex> lk(g_mutex);
-            g_cv.wait(lk, [] { return !g_translationQueue.empty() || g_stop; });
+            std::unique_lock<std::mutex> lk(g_translationMutex);
+            g_translationCv.wait(lk, [] { return !g_translationQueue.empty() || g_stop; });
             if (g_stop && g_translationQueue.empty()) break;
             text = std::move(g_translationQueue.front());
             g_translationQueue.pop();
@@ -517,10 +541,10 @@ void TtsThread(const std::string& targetLang,
                 std::vector<char> pcm(response.audio_content().begin(),
                                       response.audio_content().end());
                 {
-                    std::lock_guard<std::mutex> lk(g_mutex);
+                    std::lock_guard<std::mutex> lk(g_ttsMutex);
                     g_ttsQueue.push(std::move(pcm));
                 }
-                g_cv.notify_all();
+                g_ttsCv.notify_one();
             }
         }
 
@@ -591,9 +615,9 @@ bool StartRealtimePipeline(const std::string& targetLang,
         {
             std::vector<char> block;
             {
-                std::unique_lock<std::mutex> lk(g_mutex);
-                g_cv.wait(lk, [] { return !g_captureQueue.empty() || g_stop; });
-                if (g_stop) 
+                std::unique_lock<std::mutex> lk(g_captureMutex);
+                g_captureCv.wait(lk, [] { return !g_captureQueue.empty() || g_stop; });
+                if (g_stop)
                 {
                     while(!g_captureQueue.empty())
                         g_captureQueue.pop();
@@ -653,10 +677,10 @@ bool StartRealtimePipeline(const std::string& targetLang,
                     if (result.is_final()) {
                         std::cout << "Transcript: " << transcript << std::endl;
                         {
-                            std::lock_guard<std::mutex> lk(g_mutex);
+                            std::lock_guard<std::mutex> lk(g_transcriptMutex);
                             g_transcriptQueue.push(std::move(transcript));
                         }
-                        g_cv.notify_all();
+                        g_transcriptCv.notify_one();
                     } else {
                         std::cout << "Interim: " << transcript << std::endl;
                     }
@@ -685,8 +709,6 @@ bool StartRealtimePipeline(const std::string& targetLang,
         std::wcout << L"Speech-to-Text stream finished successfully (OK)." << std::endl;
     }
 
-
-   // g_cv.notify_all();
     DPF_EXIT();
     return true;
 }
@@ -715,8 +737,8 @@ bool StartAzurePipeline(const std::string& targetLang)
         while (!g_stop) {
             std::vector<char> block;
             {
-                std::unique_lock<std::mutex> lk(g_mutex);
-                g_cv.wait(lk, []{ return !g_captureQueue.empty() || g_stop; });
+                std::unique_lock<std::mutex> lk(g_captureMutex);
+                g_captureCv.wait(lk, []{ return !g_captureQueue.empty() || g_stop; });
                 if (g_stop && g_captureQueue.empty()) break;
                 block = std::move(g_captureQueue.front());
                 g_captureQueue.pop();
@@ -769,10 +791,10 @@ bool StartAzurePipeline(const std::string& targetLang)
                         if (read < sizeof(buffer)) break;
                     }
                     {
-                        std::lock_guard<std::mutex> lk(g_mutex);
+                        std::lock_guard<std::mutex> lk(g_ttsMutex);
                         g_ttsQueue.push(std::move(pcm));
                     }
-                    g_cv.notify_all();
+                    g_ttsCv.notify_one();
                 }
                 else if (resultSpeak->Reason == ResultReason::Canceled)
                 {
@@ -820,29 +842,35 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
     DPF_ENTER();
     UINT32 bufferFrames = 0;
     pClient->GetBufferSize(&bufferFrames);
+    size_t totalPlayed = 0;
     pClient->Start();
     while (true) {
-        UINT32 padding = 0;
-        pClient->GetCurrentPadding(&padding);
-        UINT32 framesToWrite = bufferFrames - padding;
-        if (g_stop && g_ttsQueue.empty()) break;
-        if (framesToWrite == 0) {
-            Sleep(10);
-            continue;
-        }
-
-        BYTE* pData = nullptr;
-        if (FAILED(pRender->GetBuffer(framesToWrite, &pData))) break;
-
-        DWORD bytesNeeded = framesToWrite * fmt.nBlockAlign;
         std::vector<char> chunk;
         {
-            std::lock_guard<std::mutex> lk(g_mutex);
+            std::unique_lock<std::mutex> lk(g_ttsMutex);
+            if (g_ttsQueue.empty() && !g_stop)
+                g_ttsCv.wait(lk, [] { return !g_ttsQueue.empty() || g_stop; });
+            if (g_stop && g_ttsQueue.empty()) break;
             if (!g_ttsQueue.empty()) {
                 chunk = std::move(g_ttsQueue.front());
                 g_ttsQueue.pop();
             }
         }
+
+        UINT32 padding = 0;
+        pClient->GetCurrentPadding(&padding);
+        UINT32 framesToWrite = bufferFrames - padding;
+        while (framesToWrite == 0 && !g_stop) {
+            Sleep(10);
+            pClient->GetCurrentPadding(&padding);
+            framesToWrite = bufferFrames - padding;
+        }
+        if (g_stop && framesToWrite == 0 && chunk.empty()) break;
+
+        BYTE* pData = nullptr;
+        if (FAILED(pRender->GetBuffer(framesToWrite, &pData))) break;
+
+        DWORD bytesNeeded = framesToWrite * fmt.nBlockAlign;
 
         // Use std::min to clamp the number of bytes copied to the available
         // data in the current TTS chunk.
@@ -850,10 +878,13 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
         if (copyBytes) memcpy(pData, chunk.data(), copyBytes);
         if (copyBytes < bytesNeeded)
             ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
+        totalPlayed += copyBytes;
+        std::cout << "Playback wrote " << copyBytes << " bytes, total "
+                  << totalPlayed << std::endl;
 
         if (copyBytes < chunk.size()) {
             std::vector<char> remain(chunk.begin() + copyBytes, chunk.end());
-            std::lock_guard<std::mutex> lk(g_mutex);
+            std::lock_guard<std::mutex> lk(g_ttsMutex);
             g_ttsQueue.push(std::move(remain));
         }
 
@@ -877,7 +908,10 @@ static void CaptureThread(HANDLE hDevice, bool useFile,
         if (GetAsyncKeyState(VK_F9) & 0x8000)
         {
             g_stop = true;
-            g_cv.notify_all();
+            g_captureCv.notify_all();
+            g_transcriptCv.notify_all();
+            g_translationCv.notify_all();
+            g_ttsCv.notify_all();
             ClearAllQueues();
             break;
         }
@@ -903,10 +937,10 @@ static void CaptureThread(HANDLE hDevice, bool useFile,
 
             std::vector<char> data(buffer, buffer + bytesReturned);
             {
-                std::lock_guard<std::mutex> lk(g_mutex);
+                std::lock_guard<std::mutex> lk(g_captureMutex);
                 g_captureQueue.push(std::move(data));
             }
-            g_cv.notify_all();
+            g_captureCv.notify_one();
         }
 
         Sleep(10);
@@ -1021,10 +1055,10 @@ void SpeechSynthesisToPushAudioOutputStream()
 
             std::vector<char> pcm(dataBuffer, dataBuffer + size);
             {
-                std::lock_guard<std::mutex> lk(g_mutex);
+                std::lock_guard<std::mutex> lk(g_ttsMutex);
                 g_ttsQueue.push(std::move(pcm));
             }
-            g_cv.notify_all();
+            g_ttsCv.notify_one();
 
             std::cout << size << " bytes received." << std::endl;
             return size;
@@ -1154,7 +1188,10 @@ int wmain(int argc, wchar_t** argv)
         std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
         SpeechSynthesisToPushAudioOutputStream();
         g_stop = true;
-        g_cv.notify_all();
+        g_captureCv.notify_all();
+        g_transcriptCv.notify_all();
+        g_translationCv.notify_all();
+        g_ttsCv.notify_all();
         playback.join();
         ClearAllQueues();
         pRenderClient->Release();
@@ -1236,7 +1273,10 @@ int wmain(int argc, wchar_t** argv)
     CloseHandle(hDevice);
 
     g_stop = true;
-    g_cv.notify_all();
+    g_captureCv.notify_all();
+    g_transcriptCv.notify_all();
+    g_translationCv.notify_all();
+    g_ttsCv.notify_all();
     pipeline.join();
     playback.join();
     ClearAllQueues();
