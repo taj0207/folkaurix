@@ -110,6 +110,7 @@ void ClearAllQueues()
 struct ProgramOptions
 {
     const wchar_t* outputFile = nullptr;
+    const wchar_t* ttsOutputFile = nullptr;
 #if API==Azure_API
     const wchar_t* azureInputFile = nullptr;
     bool ttsOnly = false;
@@ -125,6 +126,11 @@ static bool ParseCommandLine(int argc, wchar_t** argv, ProgramOptions& opts)
             i + 1 < argc)
         {
             opts.outputFile = argv[++i];
+        }
+        else if ((wcscmp(argv[i], L"-tf") == 0 || wcscmp(argv[i], L"--ttsfile") == 0) &&
+                 i + 1 < argc)
+        {
+            opts.ttsOutputFile = argv[++i];
         }
         else if ((wcscmp(argv[i], L"-l") == 0 || wcscmp(argv[i], L"--lang") == 0) &&
                  i + 1 < argc)
@@ -835,9 +841,10 @@ bool StartAzurePipeline(const std::string& targetLang)
 }
 #endif
 
-// Continuously writes PCM samples from g_ttsQueue to the render client.
+// Continuously writes PCM samples from g_ttsQueue to the render client and
+// optionally records them to a WAV file.
 void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
-                    const WAVEFORMATEX& fmt)
+                    const WAVEFORMATEX& fmt, WaveFileWriter* pWriter)
 {
     DPF_ENTER();
     UINT32 bufferFrames = 0;
@@ -875,7 +882,11 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
         // Use std::min to clamp the number of bytes copied to the available
         // data in the current TTS chunk.
         size_t copyBytes = std::min<size_t>(bytesNeeded, chunk.size());
-        if (copyBytes) memcpy(pData, chunk.data(), copyBytes);
+        if (copyBytes) {
+            memcpy(pData, chunk.data(), copyBytes);
+            if (pWriter)
+                WriteWaveData(*pWriter, chunk.data(), static_cast<DWORD>(copyBytes));
+        }
         if (copyBytes < bytesNeeded)
             ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
         totalPlayed += copyBytes;
@@ -1181,11 +1192,29 @@ int wmain(int argc, wchar_t** argv)
         DPF_EXIT();
         return 1;
     }
+    WaveFileWriter ttsWriter;
+    bool useTtsFile = false;
+    if (opts.ttsOutputFile)
+    {
+        if (!OpenWaveFile(ttsWriter, opts.ttsOutputFile, &renderFormat))
+        {
+            DPF(L"Failed to open TTS output file: %lu\n", GetLastError());
+            pRenderClient->Release();
+            CloseHandle(hAudioEvent);
+            pAudioClient->Release();
+            pRenderDevice->Release();
+            CoUninitialize();
+            DPF_EXIT();
+            return 1;
+        }
+        useTtsFile = true;
+    }
 
 #if API==Azure_API
     if (opts.ttsOnly)
     {
-        std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
+        std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat,
+                             useTtsFile ? &ttsWriter : nullptr);
         SpeechSynthesisToPushAudioOutputStream();
         g_stop = true;
         g_captureCv.notify_all();
@@ -1193,6 +1222,8 @@ int wmain(int argc, wchar_t** argv)
         g_translationCv.notify_all();
         g_ttsCv.notify_all();
         playback.join();
+        if (useTtsFile)
+            FinalizeWaveFile(ttsWriter);
         ClearAllQueues();
         pRenderClient->Release();
         CloseHandle(hAudioEvent);
@@ -1254,7 +1285,8 @@ int wmain(int argc, wchar_t** argv)
 
     DPF(L"Press F9 to stop recording...\n");
 
-    std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat);
+    std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat,
+                         useTtsFile ? &ttsWriter : nullptr);
 #if API==GOOGLE
     auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
     std::thread pipeline(StartRealtimePipeline, opts.targetLang, ttsEncoding,
@@ -1269,6 +1301,8 @@ int wmain(int argc, wchar_t** argv)
 
     if (useFile)
         FinalizeWaveFile(wavWriter);
+    if (useTtsFile)
+        FinalizeWaveFile(ttsWriter);
 
     CloseHandle(hDevice);
 
