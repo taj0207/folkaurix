@@ -157,7 +157,7 @@ static bool ParseCommandLine(int argc, wchar_t** argv, ProgramOptions& opts)
 
 static bool InitializeRenderDevice(IAudioClient** ppClient,
                                    IAudioRenderClient** ppRender,
-                                   WAVEFORMATEX& renderFormat,
+                                   WAVEFORMATEXTENSIBLE& renderFormat,
                                    HANDLE& hEvent,
                                    IMMDevice** ppDevice)
 {
@@ -256,7 +256,10 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
         return false;
     }
 
-    renderFormat = *pMix;
+    size_t fmtSize = sizeof(WAVEFORMATEX) + pMix->cbSize;
+    if (fmtSize > sizeof(renderFormat))
+        fmtSize = sizeof(renderFormat);
+    memcpy(&renderFormat, pMix, fmtSize);
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
@@ -1254,7 +1257,7 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
-    WAVEFORMATEX renderFormat = {};
+    WAVEFORMATEXTENSIBLE renderFormat = {};
     IMMDevice* pRenderDevice = nullptr;
     IAudioClient* pAudioClient = nullptr;
     IAudioRenderClient* pRenderClient = nullptr;
@@ -1274,7 +1277,8 @@ int wmain(int argc, wchar_t** argv)
         // The audio written by the playback thread is resampled to the
         // device's mix format. Use the same format for the output WAV file
         // to avoid mismatched headers that would cause slowed playback.
-        const WAVEFORMATEX* pTtsFormat = &renderFormat;
+        const WAVEFORMATEX* pTtsFormat =
+            reinterpret_cast<const WAVEFORMATEX*>(&renderFormat);
 
         if (!OpenWaveFile(ttsWriter, opts.ttsOutputFile, pTtsFormat))
         {
@@ -1293,7 +1297,8 @@ int wmain(int argc, wchar_t** argv)
 #if API==Azure_API
     if (opts.ttsOnly)
     {
-        std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat,
+        std::thread playback(PlaybackThread, pAudioClient, pRenderClient,
+                             reinterpret_cast<const WAVEFORMATEX&>(renderFormat),
                              useTtsFile ? &ttsWriter : nullptr);
         SpeechSynthesisToPushAudioOutputStream();
         g_stop = true;
@@ -1365,10 +1370,12 @@ int wmain(int argc, wchar_t** argv)
 
     DPF(L"Press F9 to stop recording...\n");
 
-    std::thread playback(PlaybackThread, pAudioClient, pRenderClient, renderFormat,
+    std::thread playback(PlaybackThread, pAudioClient, pRenderClient,
+                         reinterpret_cast<const WAVEFORMATEX&>(renderFormat),
                          useTtsFile ? &ttsWriter : nullptr);
 #if API==GOOGLE
-    auto ttsEncoding = EncodingFromWaveFormat(renderFormat);
+    auto ttsEncoding = EncodingFromWaveFormat(
+        reinterpret_cast<const WAVEFORMATEX&>(renderFormat));
     std::thread pipeline(StartRealtimePipeline, opts.targetLang, ttsEncoding,
                          renderFormat.nSamplesPerSec);
 #elif API == Azure_API
