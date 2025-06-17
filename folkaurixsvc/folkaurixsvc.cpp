@@ -111,7 +111,7 @@ void ClearAllQueues()
 struct ProgramOptions
 {
     const wchar_t* outputFile = nullptr;
-    const wchar_t* ttsOutputFile = nullptr;
+    const wchar_t* ttsOutputBase = nullptr;
 #if API==Azure_API
     const wchar_t* azureInputFile = nullptr;
     bool ttsOnly = false;
@@ -131,7 +131,7 @@ static bool ParseCommandLine(int argc, wchar_t** argv, ProgramOptions& opts)
         else if ((wcscmp(argv[i], L"-tf") == 0 || wcscmp(argv[i], L"--ttsfile") == 0) &&
                  i + 1 < argc)
         {
-            opts.ttsOutputFile = argv[++i];
+            opts.ttsOutputBase = argv[++i];
         }
         else if ((wcscmp(argv[i], L"-l") == 0 || wcscmp(argv[i], L"--lang") == 0) &&
                  i + 1 < argc)
@@ -923,7 +923,8 @@ bool StartAzurePipeline(const std::string& targetLang)
 // Continuously writes PCM samples from g_ttsQueue to the render client and
 // optionally records them to a WAV file.
 void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
-                    const WAVEFORMATEX& fmt, WaveFileWriter* pWriter)
+                    const WAVEFORMATEX& fmt, WaveFileWriter* pWriter,
+                    WaveFileWriter* pRawWriter)
 {
     DPF_ENTER();
     UINT32 bufferFrames = 0;
@@ -945,8 +946,12 @@ void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
                     g_ttsQueue.pop();
                 }
             }
-            if (!chunk.empty())
+            if (!chunk.empty()) {
+                if (pRawWriter)
+                    WriteWaveData(*pRawWriter, chunk.data(),
+                                  static_cast<DWORD>(chunk.size()));
                 pending = ResampleToRenderFormat(chunk, fmt);
+            }
         }
 
         UINT32 padding = 0;
@@ -1270,17 +1275,31 @@ int wmain(int argc, wchar_t** argv)
         DPF_EXIT();
         return 1;
     }
-    WaveFileWriter ttsWriter;
+    WaveFileWriter ttsWriterResampled;
+    WaveFileWriter ttsWriterRaw;
     bool useTtsFile = false;
-    if (opts.ttsOutputFile)
+    if (opts.ttsOutputBase)
     {
-        // The audio written by the playback thread is resampled to the
-        // device's mix format. Use the same format for the output WAV file
-        // to avoid mismatched headers that would cause slowed playback.
+        std::wstring base(opts.ttsOutputBase);
+        size_t pos = base.find_last_of(L'.');
+        std::wstring prefix = (pos == std::wstring::npos) ? base : base.substr(0, pos);
+        std::wstring file1 = prefix + L"1.wav";
+        std::wstring file2 = prefix + L"2.wav";
+
+        WAVEFORMATEX rawFmt = {};
+        rawFmt.wFormatTag = WAVE_FORMAT_PCM;
+        rawFmt.nChannels = 1;
+        rawFmt.nSamplesPerSec = 16000;
+        rawFmt.wBitsPerSample = 16;
+        rawFmt.nBlockAlign = rawFmt.nChannels * rawFmt.wBitsPerSample / 8;
+        rawFmt.nAvgBytesPerSec = rawFmt.nSamplesPerSec * rawFmt.nBlockAlign;
+        rawFmt.cbSize = 0;
+
         const WAVEFORMATEX* pTtsFormat =
             reinterpret_cast<const WAVEFORMATEX*>(&renderFormat);
 
-        if (!OpenWaveFile(ttsWriter, opts.ttsOutputFile, pTtsFormat))
+        if (!OpenWaveFile(ttsWriterRaw, file1.c_str(), &rawFmt) ||
+            !OpenWaveFile(ttsWriterResampled, file2.c_str(), pTtsFormat))
         {
             DPF(L"Failed to open TTS output file: %lu\n", GetLastError());
             pRenderClient->Release();
@@ -1299,7 +1318,8 @@ int wmain(int argc, wchar_t** argv)
     {
         std::thread playback(PlaybackThread, pAudioClient, pRenderClient,
                              reinterpret_cast<const WAVEFORMATEX&>(renderFormat),
-                             useTtsFile ? &ttsWriter : nullptr);
+                             useTtsFile ? &ttsWriterResampled : nullptr,
+                             useTtsFile ? &ttsWriterRaw : nullptr);
         SpeechSynthesisToPushAudioOutputStream();
         g_stop = true;
         g_captureCv.notify_all();
@@ -1307,8 +1327,10 @@ int wmain(int argc, wchar_t** argv)
         g_translationCv.notify_all();
         g_ttsCv.notify_all();
         playback.join();
-        if (useTtsFile)
-            FinalizeWaveFile(ttsWriter);
+        if (useTtsFile) {
+            FinalizeWaveFile(ttsWriterRaw);
+            FinalizeWaveFile(ttsWriterResampled);
+        }
         ClearAllQueues();
         pRenderClient->Release();
         CloseHandle(hAudioEvent);
@@ -1372,7 +1394,8 @@ int wmain(int argc, wchar_t** argv)
 
     std::thread playback(PlaybackThread, pAudioClient, pRenderClient,
                          reinterpret_cast<const WAVEFORMATEX&>(renderFormat),
-                         useTtsFile ? &ttsWriter : nullptr);
+                         useTtsFile ? &ttsWriterResampled : nullptr,
+                         useTtsFile ? &ttsWriterRaw : nullptr);
 #if API==GOOGLE
     auto ttsEncoding = EncodingFromWaveFormat(
         reinterpret_cast<const WAVEFORMATEX&>(renderFormat));
@@ -1399,8 +1422,10 @@ int wmain(int argc, wchar_t** argv)
     pipeline.join();
     playback.join();
 
-    if (useTtsFile)
-        FinalizeWaveFile(ttsWriter);
+    if (useTtsFile) {
+        FinalizeWaveFile(ttsWriterRaw);
+        FinalizeWaveFile(ttsWriterResampled);
+    }
     ClearAllQueues();
 
     pRenderClient->Release();
