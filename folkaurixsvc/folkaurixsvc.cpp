@@ -1399,8 +1399,10 @@ int wmain(int argc, wchar_t** argv)
 #if API==GOOGLE
     auto ttsEncoding = EncodingFromWaveFormat(
         reinterpret_cast<const WAVEFORMATEX&>(renderFormat));
+    // Request TTS output at 16 kHz to match the resampler's expected
+    // source rate.
     std::thread pipeline(StartRealtimePipeline, opts.targetLang, ttsEncoding,
-                         renderFormat.nSamplesPerSec);
+                         16000);
 #elif API == Azure_API
     std::thread pipeline(StartAzurePipeline, opts.targetLang);
 #endif
