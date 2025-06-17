@@ -245,55 +245,25 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
         return false;
     }
 
-    // Use 16 kHz / 16-bit mono for TTS output and check if the device supports
-    // this format. If not supported, fall back to the closest match or the mix
-    // format returned by the audio driver.
-    WAVEFORMATEX ttsFmt = {};
-    ttsFmt.wFormatTag = WAVE_FORMAT_PCM;
-    ttsFmt.nChannels = 1;
-    ttsFmt.nSamplesPerSec = 16000;
-    ttsFmt.wBitsPerSample = 16;
-    ttsFmt.nBlockAlign = ttsFmt.nChannels * ttsFmt.wBitsPerSample / 8;
-    ttsFmt.nAvgBytesPerSec = ttsFmt.nSamplesPerSec * ttsFmt.nBlockAlign;
-    ttsFmt.cbSize = 0;
+    // Always use the device mix format for playback and resample any TTS output
+    // to this rate.
+    WAVEFORMATEX* pMix = nullptr;
+    hr = pAudioClient->GetMixFormat(&pMix);
+    if (FAILED(hr))
+    {
+        pAudioClient->Release();
+        pRenderDevice->Release();
+        return false;
+    }
 
-    WAVEFORMATEX* pClosest = nullptr;
-    hr = pAudioClient->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED,
-                                         &ttsFmt, &pClosest);
-    if (hr == S_OK)
-    {
-        renderFormat = ttsFmt;
-    }
-    else
-    {
-        if (pClosest)
-        {
-            renderFormat = *pClosest;
-            CoTaskMemFree(pClosest);
-        }
-        else
-        {
-            WAVEFORMATEX* pMix = nullptr;
-            if (SUCCEEDED(pAudioClient->GetMixFormat(&pMix)))
-            {
-                renderFormat = *pMix;
-                CoTaskMemFree(pMix);
-            }
-            else
-            {
-                pAudioClient->Release();
-                pRenderDevice->Release();
-                return false;
-            }
-        }
-    }
+    renderFormat = *pMix;
 
     REFERENCE_TIME bufferDuration = 10000000; // 1 second
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
-                                  &renderFormat,
+                                  pMix,
                                   nullptr);
     if (FAILED(hr))
     {
@@ -302,6 +272,8 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
         pRenderDevice->Release();
         return false;
     }
+
+    CoTaskMemFree(pMix);
 
     hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     pAudioClient->SetEventHandle(hEvent);
