@@ -15,8 +15,10 @@ desired architecture.
 
 ## Usage
 ```
-folkaurixsvc.exe [-f output.raw] [-tf output.wav] [-l target-language]
+folkaurixsvc.exe [-f output.raw] [-tf output.wav] [-l target-language] [-k azure-key]
 ```
+If `-k` is omitted, the program reads the Azure Speech subscription key from
+the `AZURE_KEY` environment variable.
 When started, the program lists all active speaker devices and lets the
 user choose one. Captured audio is streamed to Google Cloud and the
 translated speech is played immediately on the selected device. Use
