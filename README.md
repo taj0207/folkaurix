@@ -16,3 +16,7 @@ FolkAurix brings together a virtual audio driver based on Microsoft's SysVAD sam
 4. Optional: use the utilities in the `Test` directory to play audio or experiment with the real-time translation pipeline. See [Test/README.md](Test/README.md) for command examples.
 
 This repository assumes you already have the necessary credentials for Azure/Google Cloud services when using the speech features.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
