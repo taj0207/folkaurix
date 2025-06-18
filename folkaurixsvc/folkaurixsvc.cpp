@@ -34,9 +34,6 @@
 #include <google/cloud/translate/translation_client.h>
 #include <google/cloud/texttospeech/text_to_speech_client.h>
 #elif API == Azure_API
-#ifndef AZURE_KEY
-#define AZURE_KEY "yK8ATu5vAZMKp4EXjFbAKueZSlw8iDDh02P00XE6c7vN1aWfGm8HJQQJ99BFAC8vTInXJ3w3AAAYACOGlx1o"
-#endif
 #ifndef AZURE_REGION
 #define AZURE_REGION "westus2"
 #endif
@@ -51,6 +48,7 @@
 #include <algorithm>
 #include <iostream>
 #include <limits>
+#include <cstdlib>
 
 
 #ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
@@ -87,6 +85,7 @@ static std::mutex g_ttsMutex;
 static std::condition_variable g_ttsCv;
 
 static std::atomic<bool> g_stop(false);
+static std::string g_azureKey;
 
 void ClearAllQueues()
 {
@@ -115,6 +114,7 @@ struct ProgramOptions
 #if API==Azure_API
     const wchar_t* azureInputFile = nullptr;
     bool ttsOnly = false;
+    std::string azureKey;
 #endif
     std::string targetLang = "zh-Hant";
 };
@@ -149,6 +149,13 @@ static bool ParseCommandLine(int argc, wchar_t** argv, ProgramOptions& opts)
         else if ((wcscmp(argv[i], L"-tts") == 0 || wcscmp(argv[i], L"--texttospeech") == 0))
         {
             opts.ttsOnly = true;
+        }
+        else if ((wcscmp(argv[i], L"-k") == 0 || wcscmp(argv[i], L"--key") == 0) &&
+                 i + 1 < argc)
+        {
+            char buf[256] = {};
+            wcstombs(buf, argv[++i], sizeof(buf) - 1);
+            opts.azureKey = buf;
         }
 #endif
     }
@@ -825,7 +832,7 @@ bool StartAzurePipeline(const std::string& targetLang)
 
     DPF_ENTER();
 
-    auto speechConfig = SpeechTranslationConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+    auto speechConfig = SpeechTranslationConfig::FromSubscription(g_azureKey.c_str(), AZURE_REGION);
     speechConfig->SetSpeechRecognitionLanguage("en-US");
     speechConfig->AddTargetLanguage(targetLang);
 
@@ -873,7 +880,7 @@ bool StartAzurePipeline(const std::string& targetLang)
             if (it != result->Translations.end()) {
             auto text = it->second;
             DPF(L"translated:%hs\n", text.c_str());
-                auto ttsConfig = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+                auto ttsConfig = SpeechConfig::FromSubscription(g_azureKey.c_str(), AZURE_REGION);
                 ttsConfig->SetSpeechSynthesisLanguage("zh-TW");
                 // Request raw PCM output so we can directly feed the bytes to
                 // the playback thread. The Riff* formats include a WAV header
@@ -1070,7 +1077,7 @@ void SpeechContinuousRecognitionWithFile()
     // <SpeechContinuousRecognitionWithFile>
     // Creates an instance of a speech config with specified endpoint and subscription key.
     // Replace with your own endpoint and subscription key.
-    auto config = SpeechConfig::FromEndpoint(AZURE_ENDPOINT, AZURE_KEY);
+    auto config = SpeechConfig::FromEndpoint(AZURE_ENDPOINT, g_azureKey.c_str());
 
     // Creates a speech recognizer using file as audio input.
     // Replace with your own audio file name.
@@ -1209,7 +1216,7 @@ void SpeechSynthesisToPushAudioOutputStream()
 
     // Creates an instance of a speech config with specified endpoint and subscription key.
     // Replace with your own endpoint and subscription key.
-    auto config = SpeechConfig::FromSubscription(AZURE_KEY, AZURE_REGION);
+    auto config = SpeechConfig::FromSubscription(g_azureKey.c_str(), AZURE_REGION);
 
     // Creates an instance of the callback class inherited from PushAudioOutputStreamCallback.
     auto callback = std::make_shared<PushAudioOutputStreamSampleCallback>();
@@ -1264,6 +1271,16 @@ int wmain(int argc, wchar_t** argv)
     ProgramOptions opts;
     ParseCommandLine(argc, argv, opts);
 #if API==Azure_API
+    if (opts.azureKey.empty()) {
+        const char* envKey = getenv("AZURE_KEY");
+        if (envKey)
+            opts.azureKey = envKey;
+    }
+    if (opts.azureKey.empty()) {
+        std::cerr << "AZURE_KEY not provided via -k or environment variable." << std::endl;
+        return 1;
+    }
+    g_azureKey = opts.azureKey;
     if (opts.azureInputFile)
     {
         wprintf(L"Process %s\n", opts.azureInputFile);
