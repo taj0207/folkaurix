@@ -490,11 +490,11 @@ static std::vector<char> ResampleToRenderFormat(const std::vector<char>& input,
             }
             else if (outFmt.wBitsPerSample == 32)
             {
-                int32Dst[i * outFmt.nChannels + ch] = static_cast<int32_t>(sample) << 16;
+                int32Dst[i * outFmt.nChannels + ch] = static_cast<int32_t>(sample) * 65536;
             }
             else if (outFmt.wBitsPerSample == 24)
             {
-                int32_t val = static_cast<int32_t>(sample) << 8;
+                int32_t val = static_cast<int32_t>(sample) * 256;
                 size_t offset = (i * outFmt.nChannels + ch) * 3;
                 int24Dst[offset] = static_cast<uint8_t>(val & 0xFF);
                 int24Dst[offset + 1] = static_cast<uint8_t>((val >> 8) & 0xFF);
