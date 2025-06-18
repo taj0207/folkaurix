@@ -698,26 +698,29 @@ bool StartAzurePipeline(const std::string& targetLang)
 
     recognizer->Recognizing.Connect([&](const TranslationRecognitionEventArgs& e) {
             std::string lidResult = e.Result->Properties.GetProperty(PropertyId::SpeechServiceConnection_AutoDetectSourceLanguageResult);
-            std::cout << "Recognizing in Language = "<< lidResult << ": Text=" << e.Result->Text << std::endl;
+            //std::cout << "Recognizing in Language = "<< lidResult << ": Text=" << e.Result->Text << std::endl;
             for (const auto& it : e.Result->Translations)
             {
-                std::cout<<"翻譯成: " << it.first.c_str() <<": " ;
-                std::wcout<< it.second.c_str() << std::endl;
+               // std::cout<<"翻譯成: " << it.first.c_str() <<": " ;
+               // std::wcout<< it.second.c_str() << std::endl;
             }
         });
 
 
     recognizer->Recognized.Connect([&](const TranslationRecognitionEventArgs& e) {
         auto result = e.Result;
-        if(result)
-            DPF(L"get result from azure, reaseon(%x)\n", result->Reason);
-        else
-            DPF(L"get no result from azure\n");
         if (result && result->Reason == ResultReason::TranslatedSpeech) {
+            std::string lidResult = result->Properties.GetProperty(PropertyId::SpeechServiceConnection_AutoDetectSourceLanguageResult);
+            std::cout << "Recognizing in Language = "<< lidResult << ": Text=" << e.Result->Text << std::endl;
             auto it = result->Translations.find(targetLang);
-            if (it != result->Translations.end()) {
-            auto text = it->second;
-            DPF(L"translated:%hs\n", text.c_str());
+            if(it == result->Translations.end())
+            {
+                DPF(L"translate to target lang failed.\n");
+            }
+            else
+            {
+                auto text = it->second;
+                DPF(L"translated:%hs\n", text.c_str());
                 auto ttsConfig = SpeechConfig::FromSubscription(g_azureKey.c_str(), AZURE_REGION);
                 ttsConfig->SetSpeechSynthesisLanguage("zh-TW");
                 auto audioCfg = AudioConfig::FromDefaultSpeakerOutput();
