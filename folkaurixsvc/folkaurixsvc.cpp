@@ -252,23 +252,58 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
         return false;
     }
 
-    // Always use the device mix format for playback and resample any TTS output
-    // to this rate.
+    // Try several lower quality formats before falling back to the device mix
+    // format.  Candidates are ordered from lowest to highest quality.
+    WAVEFORMATEX candidates[2] = {};
+    candidates[0].wFormatTag = WAVE_FORMAT_PCM;
+    candidates[0].nChannels = 1;
+    candidates[0].nSamplesPerSec = 16000;
+    candidates[0].wBitsPerSample = 16;
+    candidates[0].nBlockAlign =
+        candidates[0].nChannels * candidates[0].wBitsPerSample / 8;
+    candidates[0].nAvgBytesPerSec =
+        candidates[0].nSamplesPerSec * candidates[0].nBlockAlign;
+    candidates[1] = candidates[0];
+    candidates[1].nChannels = 2;
+    candidates[1].nSamplesPerSec = 44100;
+
+    bool useCandidate = false;
     WAVEFORMATEX* pMix = nullptr;
-    hr = pAudioClient->GetMixFormat(&pMix);
-    if (FAILED(hr))
+    WAVEFORMATEX* pInitFmt = nullptr;
+    for (const auto& cand : candidates)
     {
-        pAudioClient->Release();
-        pRenderDevice->Release();
-        return false;
+        hr = pAudioClient->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, &cand,
+                                             nullptr);
+        if (hr == S_OK)
+        {
+            memcpy(&renderFormat.Format, &cand, sizeof(WAVEFORMATEX));
+            renderFormat.Format.cbSize = 0;
+            renderFormat.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+            pInitFmt = reinterpret_cast<WAVEFORMATEX*>(&renderFormat);
+            useCandidate = true;
+            break;
+        }
+    }
+    if (!useCandidate)
+    {
+        // Fall back to the device mix format for playback and resample any TTS
+        // output to this rate.
+        hr = pAudioClient->GetMixFormat(&pMix);
+        if (FAILED(hr))
+        {
+            pAudioClient->Release();
+            pRenderDevice->Release();
+            return false;
+        }
+
+        size_t fmtSize = sizeof(WAVEFORMATEX) + pMix->cbSize;
+        if (fmtSize > sizeof(renderFormat))
+            fmtSize = sizeof(renderFormat);
+        memcpy(&renderFormat, pMix, fmtSize);
+        pInitFmt = pMix;
     }
 
-    size_t fmtSize = sizeof(WAVEFORMATEX) + pMix->cbSize;
-    if (fmtSize > sizeof(renderFormat))
-        fmtSize = sizeof(renderFormat);
-    memcpy(&renderFormat, pMix, fmtSize);
-
-    DPF(L"Render format: %u channels, %u Hz, %u bits per sample\n",
+    DPF(L"Render format selected: %u channels, %u Hz, %u bits per sample\n",
         renderFormat.Format.nChannels,
         renderFormat.Format.nSamplesPerSec,
         renderFormat.Format.wBitsPerSample);
@@ -280,7 +315,7 @@ static bool InitializeRenderDevice(IAudioClient** ppClient,
                                   AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
                                   bufferDuration,
                                   0,
-                                  pMix,
+                                  pInitFmt,
 
                                   nullptr);
     if (FAILED(hr))
