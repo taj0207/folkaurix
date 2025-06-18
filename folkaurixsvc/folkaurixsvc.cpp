@@ -67,7 +67,7 @@
 #endif
 
 // Simple thread-safe queues for streaming audio to Google Cloud and
-// feeding synthesized audio back to the render device.
+// delivering transcripts and translations.
 static std::queue<std::vector<char>> g_captureQueue;
 static std::mutex g_captureMutex;
 static std::condition_variable g_captureCv;
@@ -80,9 +80,6 @@ static std::queue<std::string> g_translationQueue;
 static std::mutex g_translationMutex;
 static std::condition_variable g_translationCv;
 
-static std::queue<std::vector<char>> g_ttsQueue;
-static std::mutex g_ttsMutex;
-static std::condition_variable g_ttsCv;
 
 static std::atomic<bool> g_stop(false);
 static std::string g_azureKey;
@@ -100,10 +97,6 @@ void ClearAllQueues()
     {
         std::lock_guard<std::mutex> lk(g_translationMutex);
         while (!g_translationQueue.empty()) g_translationQueue.pop();
-    }
-    {
-        std::lock_guard<std::mutex> lk(g_ttsMutex);
-        while (!g_ttsQueue.empty()) g_ttsQueue.pop();
     }
 }
 
@@ -162,193 +155,6 @@ static bool ParseCommandLine(int argc, wchar_t** argv, ProgramOptions& opts)
     return true;
 }
 
-static bool InitializeRenderDevice(IAudioClient** ppClient,
-                                   IAudioRenderClient** ppRender,
-                                   WAVEFORMATEXTENSIBLE& renderFormat,
-                                   HANDLE& hEvent,
-                                   IMMDevice** ppDevice)
-{
-    IMMDeviceEnumerator* pEnumerator = nullptr;
-    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
-                                  CLSCTX_ALL, IID_PPV_ARGS(&pEnumerator));
-    if (FAILED(hr))
-    {
-        DPF(L"Failed to create device enumerator: 0x%08lx\n", hr);
-        return false;
-    }
-
-    IMMDeviceCollection* pCollection = nullptr;
-    hr = pEnumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pCollection);
-    if (FAILED(hr))
-    {
-        DPF(L"EnumAudioEndpoints failed: 0x%08lx\n", hr);
-        pEnumerator->Release();
-        return false;
-    }
-
-    UINT count = 0;
-    hr = pCollection->GetCount(&count);
-    if (FAILED(hr))
-    {
-        DPF(L"GetCount failed: 0x%08lx\n", hr);
-        pCollection->Release();
-        pEnumerator->Release();
-        return false;
-    }
-
-    for (UINT i = 0; i < count; ++i)
-    {
-        IMMDevice* pDevice = nullptr;
-        hr = pCollection->Item(i, &pDevice);
-        if (SUCCEEDED(hr))
-        {
-            IPropertyStore* pStore = nullptr;
-            hr = pDevice->OpenPropertyStore(STGM_READ, &pStore);
-            if (SUCCEEDED(hr))
-            {
-                PROPVARIANT varName;
-                PropVariantInit(&varName);
-                hr = pStore->GetValue(PKEY_Device_FriendlyName, &varName);
-                if (SUCCEEDED(hr))
-                {
-                    wprintf(L"%u: %s\n", i, varName.pwszVal);
-                    PropVariantClear(&varName);
-                }
-                pStore->Release();
-            }
-            pDevice->Release();
-        }
-    }
-
-    wprintf(L"Select device index: ");
-    UINT choice = 0;
-    wscanf(L"%u", &choice);
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    if (choice >= count)
-    {
-        wprintf(L"Invalid choice\n");
-        pCollection->Release();
-        pEnumerator->Release();
-        return false;
-    }
-
-    IMMDevice* pRenderDevice = nullptr;
-    hr = pCollection->Item(choice, &pRenderDevice);
-    pCollection->Release();
-    pEnumerator->Release();
-    if (FAILED(hr))
-    {
-        wprintf(L"Failed to get device: 0x%08lx\n", hr);
-        return false;
-    }
-
-    IAudioClient* pAudioClient = nullptr;
-    hr = pRenderDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-                                 (void**)&pAudioClient);
-    if (FAILED(hr))
-    {
-        DPF(L"Activate IAudioClient failed: 0x%08lx\n", hr);
-        pRenderDevice->Release();
-        return false;
-    }
-
-    // Try several lower quality formats before falling back to the device mix
-    // format.  Candidates are ordered from lowest to highest quality.
-    WAVEFORMATEX candidates[2] = {};
-    candidates[0].wFormatTag = WAVE_FORMAT_PCM;
-    candidates[0].nChannels = 1;
-    candidates[0].nSamplesPerSec = 16000;
-    candidates[0].wBitsPerSample = 16;
-    candidates[0].nBlockAlign =
-        candidates[0].nChannels * candidates[0].wBitsPerSample / 8;
-    candidates[0].nAvgBytesPerSec =
-        candidates[0].nSamplesPerSec * candidates[0].nBlockAlign;
-    candidates[1] = candidates[0];
-    candidates[1].nChannels = 2;
-    candidates[1].nSamplesPerSec = 44100;
-
-    bool useCandidate = false;
-    WAVEFORMATEX* pMix = nullptr;
-    WAVEFORMATEX* pInitFmt = nullptr;
-    for (const auto& cand : candidates)
-    {
-        hr = pAudioClient->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, &cand,
-                                             nullptr);
-        if (hr == S_OK)
-        {
-            memcpy(&renderFormat.Format, &cand, sizeof(WAVEFORMATEX));
-            renderFormat.Format.cbSize = 0;
-            renderFormat.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
-            pInitFmt = reinterpret_cast<WAVEFORMATEX*>(&renderFormat);
-            useCandidate = true;
-            break;
-        }
-    }
-    if (!useCandidate)
-    {
-        // Fall back to the device mix format for playback and resample any TTS
-        // output to this rate.
-        hr = pAudioClient->GetMixFormat(&pMix);
-        if (FAILED(hr))
-        {
-            pAudioClient->Release();
-            pRenderDevice->Release();
-            return false;
-        }
-
-        size_t fmtSize = sizeof(WAVEFORMATEX) + pMix->cbSize;
-        if (fmtSize > sizeof(renderFormat))
-            fmtSize = sizeof(renderFormat);
-        memcpy(&renderFormat, pMix, fmtSize);
-        pInitFmt = pMix;
-    }
-
-    DPF(L"Render format selected: %u channels, %u Hz, %u bits per sample\n",
-        renderFormat.Format.nChannels,
-        renderFormat.Format.nSamplesPerSec,
-        renderFormat.Format.wBitsPerSample);
-    DPF(L"Rate mode: AvgBytesPerSec=%u, BlockAlign=%u\n",
-        renderFormat.Format.nAvgBytesPerSec,
-        renderFormat.Format.nBlockAlign);
-    REFERENCE_TIME bufferDuration = 10000000; // 1 second
-    hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-                                  bufferDuration,
-                                  0,
-                                  pInitFmt,
-
-                                  nullptr);
-    if (FAILED(hr))
-    {
-        DPF(L"Audio client initialize failed: 0x%08lx\n", hr);
-        pAudioClient->Release();
-        pRenderDevice->Release();
-        return false;
-    }
-
-    CoTaskMemFree(pMix);
-
-    hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    pAudioClient->SetEventHandle(hEvent);
-
-    IAudioRenderClient* pRenderClient = nullptr;
-    hr = pAudioClient->GetService(__uuidof(IAudioRenderClient), (void**)&pRenderClient);
-    if (FAILED(hr))
-    {
-        DPF(L"GetService IAudioRenderClient failed: 0x%08lx\n", hr);
-        CloseHandle(hEvent);
-        pAudioClient->Release();
-        pRenderDevice->Release();
-        return false;
-    }
-
-    if (ppClient) *ppClient = pAudioClient;
-    if (ppRender) *ppRender = pRenderClient;
-    if (ppDevice) *ppDevice = pRenderDevice;
-    else pRenderDevice->Release();
-
-    return true;
-}
 
 bool ConvertRawToWav(const wchar_t* rawPath,
                      const wchar_t* wavPath,
@@ -682,11 +488,8 @@ void TtsThread(const std::string& targetLang,
             if (!response.audio_content().empty()) {
                 std::vector<char> pcm(response.audio_content().begin(),
                                       response.audio_content().end());
-                {
-                    std::lock_guard<std::mutex> lk(g_ttsMutex);
-                    g_ttsQueue.push(std::move(pcm));
-                }
-                g_ttsCv.notify_one();
+                // Playback is handled directly by the SDK when using
+                // AudioConfig::FromDefaultSpeakerOutput().
             }
         }
 
@@ -917,43 +720,20 @@ bool StartAzurePipeline(const std::string& targetLang)
             DPF(L"translated:%hs\n", text.c_str());
                 auto ttsConfig = SpeechConfig::FromSubscription(g_azureKey.c_str(), AZURE_REGION);
                 ttsConfig->SetSpeechSynthesisLanguage("zh-TW");
-                // Request raw PCM output so we can directly feed the bytes to
-                // the playback thread. The Riff* formats include a WAV header
-                // which resulted in noise being rendered.
-                ttsConfig->SetSpeechSynthesisOutputFormat(
-                    SpeechSynthesisOutputFormat::Raw16Khz16BitMonoPcm);
-                auto outStream = AudioOutputStream::CreatePullStream();
-                auto audioCfg = AudioConfig::FromStreamOutput(outStream);
+                auto audioCfg = AudioConfig::FromDefaultSpeakerOutput();
                 auto synthesizer = SpeechSynthesizer::FromConfig(ttsConfig, audioCfg);
                 auto resultSpeak = synthesizer->SpeakTextAsync(text).get();
-                std::cout <<"result from tts:" << (int)resultSpeak->Reason << std::endl;
-                if(resultSpeak->Reason == ResultReason::SynthesizingAudioCompleted)
-                {
-                    std::cout << "speak translated\n";
-                    std::vector<char> pcm;
-                    uint8_t buffer[1024];
-                    while (auto read = outStream->Read(buffer, sizeof(buffer))) {
-                        pcm.insert(pcm.end(), buffer, buffer + read);
-                        if (read < sizeof(buffer)) break;
-                    }
-                    {
-                        std::lock_guard<std::mutex> lk(g_ttsMutex);
-                        g_ttsQueue.push(std::move(pcm));
-                    }
-                    g_ttsCv.notify_one();
-                }
-                else if (resultSpeak->Reason == ResultReason::Canceled)
+                if (resultSpeak->Reason == ResultReason::Canceled)
                 {
                     auto cancellation = SpeechSynthesisCancellationDetails::FromResult(resultSpeak);
                     std::cout << "CANCELED: Reason=" << (int)cancellation->Reason << std::endl;
-
                     if (cancellation->Reason == CancellationReason::Error)
                     {
                         std::cout << "CANCELED: ErrorCode=" << (int)cancellation->ErrorCode << std::endl;
                         std::cout << "CANCELED: ErrorDetails=[" << cancellation->ErrorDetails << "]" << std::endl;
                         std::cout << "CANCELED: Did you update the subscription info?" << std::endl;
                     }
-                }   
+                }
             }
         }
     });
@@ -981,76 +761,6 @@ bool StartAzurePipeline(const std::string& targetLang)
 }
 #endif
 
-// Continuously writes PCM samples from g_ttsQueue to the render client and
-// optionally records them to a WAV file.
-void PlaybackThread(IAudioClient* pClient, IAudioRenderClient* pRender,
-                    const WAVEFORMATEX& fmt, WaveFileWriter* pWriter,
-                    WaveFileWriter* pRawWriter)
-{
-    DPF_ENTER();
-    UINT32 bufferFrames = 0;
-    pClient->GetBufferSize(&bufferFrames);
-    size_t totalPlayed = 0;
-    pClient->Start();
-    std::vector<char> pending;
-    while (true) {
-        if (pending.empty())
-        {
-            std::vector<char> chunk;
-            {
-                std::unique_lock<std::mutex> lk(g_ttsMutex);
-                if (g_ttsQueue.empty() && !g_stop)
-                    g_ttsCv.wait(lk, [] { return !g_ttsQueue.empty() || g_stop; });
-                if (g_stop && g_ttsQueue.empty()) break;
-                if (!g_ttsQueue.empty()) {
-                    chunk = std::move(g_ttsQueue.front());
-                    g_ttsQueue.pop();
-                }
-            }
-            if (!chunk.empty()) {
-                if (pRawWriter)
-                    WriteWaveData(*pRawWriter, chunk.data(),
-                                  static_cast<DWORD>(chunk.size()));
-                pending = ResampleToRenderFormat(chunk, fmt);
-            }
-        }
-
-        UINT32 padding = 0;
-        pClient->GetCurrentPadding(&padding);
-        UINT32 framesToWrite = bufferFrames - padding;
-        while (framesToWrite == 0 && !g_stop) {
-            Sleep(10);
-            pClient->GetCurrentPadding(&padding);
-            framesToWrite = bufferFrames - padding;
-        }
-        if (g_stop && framesToWrite == 0 && pending.empty()) break;
-
-        BYTE* pData = nullptr;
-        if (FAILED(pRender->GetBuffer(framesToWrite, &pData))) break;
-
-        DWORD bytesNeeded = framesToWrite * fmt.nBlockAlign;
-
-        size_t copyBytes = std::min<size_t>(bytesNeeded, pending.size());
-        if (copyBytes) {
-            memcpy(pData, pending.data(), copyBytes);
-            if (pWriter)
-                WriteWaveData(*pWriter, pending.data(), static_cast<DWORD>(copyBytes));
-            pending.erase(pending.begin(), pending.begin() + copyBytes);
-        }
-        if (copyBytes < bytesNeeded)
-            ZeroMemory(pData + copyBytes, bytesNeeded - copyBytes);
-        totalPlayed += copyBytes;
-        std::cout << "Playback wrote " << copyBytes << " bytes, total "
-                  << totalPlayed << std::endl;
-
-        pRender->ReleaseBuffer(framesToWrite, 0);
-        if (!g_stop && pending.empty() && g_ttsQueue.empty()) {
-            Sleep(10);
-        }
-    }
-    pClient->Stop();
-    DPF_EXIT();
-}
 
 // Captures audio from SysVAD loopback using IOCTL_SYSVAD_GET_LOOPBACK_DATA.
 static void CaptureThread(HANDLE hDevice, bool useFile,
@@ -1066,7 +776,6 @@ static void CaptureThread(HANDLE hDevice, bool useFile,
             g_captureCv.notify_all();
             g_transcriptCv.notify_all();
             g_translationCv.notify_all();
-            g_ttsCv.notify_all();
             ClearAllQueues();
             break;
         }
@@ -1179,89 +888,14 @@ void SpeechContinuousRecognitionWithFile()
 }
 
 
-// Speech synthesis to push audio output stream.
-void SpeechSynthesisToPushAudioOutputStream()
+// Speech synthesis using the default speaker output.
+void SpeechSynthesisToDefaultSpeaker()
 {
     using namespace Microsoft::CognitiveServices::Speech;
     using namespace Microsoft::CognitiveServices::Speech::Audio;
-    // First, defines push audio output stream callback class that implements the
-    // PushAudioOutputStreamCallback interface. The sample here illustrates how to define such
-    // a callback that writes audio data to a byte vector.
-    // PushAudioOutputStreamSampleCallback implements PushAudioOutputStreamCallback interface
-    class PushAudioOutputStreamSampleCallback : public PushAudioOutputStreamCallback
-    {
-    public:
-        PushAudioOutputStreamSampleCallback()
-        {
-            m_audioData = std::make_shared<std::vector<uint8_t>>();
-        }
-
-        /// <summary>
-        /// The callback function which is invoked when the synthesizer has a output audio chunk to write out.
-        /// </summary>
-        /// <param name="dataBuffer">The output audio chunk sent by synthesizer.</param>
-        /// <param name="size">Size of the output audio chunk in bytes.</param>
-        /// <returns>Tell synthesizer how many bytes are received.</returns>
-        int Write(uint8_t* dataBuffer, uint32_t size) override
-        {
-            auto oldSize = m_audioData->size();
-            m_audioData->resize(oldSize + size);
-            memcpy(m_audioData->data() + oldSize, dataBuffer, size);
-
-            std::vector<char> pcm(dataBuffer, dataBuffer + size);
-            {
-                std::lock_guard<std::mutex> lk(g_ttsMutex);
-                g_ttsQueue.push(std::move(pcm));
-            }
-            g_ttsCv.notify_one();
-
-            std::cout << size << " bytes received." << std::endl;
-            return size;
-        }
-
-        /// <summary>
-        /// The callback which is invoked when the synthesizer is about to close the stream.
-        /// </summary>
-        void Close() override
-        {
-            std::cout << "Push audio output stream closed." << std::endl;
-        }
-
-        /// <summary>
-        /// Gets the received audio data size
-        /// </summary>
-        /// <returns>The received audio data size</returns>
-        size_t GetAudioSize()
-        {
-            return m_audioData->size();
-        }
-
-        /// <summary>
-        /// Gets the received audio data
-        /// </summary>
-        /// <returns>The received audio data in byte vector</returns>
-        std::shared_ptr<std::vector<uint8_t>> GetAudioData()
-        {
-            return m_audioData;
-        }
-
-    private:
-        std::shared_ptr<std::vector<uint8_t>> m_audioData;
-    };
-
-    // Creates an instance of a speech config with specified endpoint and subscription key.
-    // Replace with your own endpoint and subscription key.
     auto config = SpeechConfig::FromSubscription(g_azureKey.c_str(), AZURE_REGION);
-
-    // Creates an instance of the callback class inherited from PushAudioOutputStreamCallback.
-    auto callback = std::make_shared<PushAudioOutputStreamSampleCallback>();
-
-    // Creates an audio out stream from the callback.
-    auto stream = AudioOutputStream::CreatePushStream(callback);
-
-    // Creates a speech synthesizer using audio stream output.
-    auto streamConfig = AudioConfig::FromStreamOutput(stream);
-    auto synthesizer = SpeechSynthesizer::FromConfig(config, streamConfig);
+    auto audioCfg = AudioConfig::FromDefaultSpeakerOutput();
+    auto synthesizer = SpeechSynthesizer::FromConfig(config, audioCfg);
 
     while (true)
     {
@@ -1296,7 +930,7 @@ void SpeechSynthesisToPushAudioOutputStream()
         }
     }
 
-    std::cout << "Totally " << callback->GetAudioSize() << " bytes received." << std::endl;
+    std::cout << "Done." << std::endl;
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -1333,80 +967,13 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
-    WAVEFORMATEXTENSIBLE renderFormat = {};
-    IMMDevice* pRenderDevice = nullptr;
-    IAudioClient* pAudioClient = nullptr;
-    IAudioRenderClient* pRenderClient = nullptr;
-    HANDLE hAudioEvent = nullptr;
-
-    if (!InitializeRenderDevice(&pAudioClient, &pRenderClient, renderFormat,
-                                hAudioEvent, &pRenderDevice))
-    {
-        CoUninitialize();
-        DPF_EXIT();
-        return 1;
-    }
-    WaveFileWriter ttsWriterResampled;
-    WaveFileWriter ttsWriterRaw;
-    bool useTtsFile = false;
-    if (opts.ttsOutputBase)
-    {
-        std::wstring base(opts.ttsOutputBase);
-        size_t pos = base.find_last_of(L'.');
-        std::wstring prefix = (pos == std::wstring::npos) ? base : base.substr(0, pos);
-        std::wstring file1 = prefix + L"1.wav";
-        std::wstring file2 = prefix + L"2.wav";
-
-        WAVEFORMATEX rawFmt = {};
-        rawFmt.wFormatTag = WAVE_FORMAT_PCM;
-        rawFmt.nChannels = 1;
-        rawFmt.nSamplesPerSec = 16000;
-        rawFmt.wBitsPerSample = 16;
-        rawFmt.nBlockAlign = rawFmt.nChannels * rawFmt.wBitsPerSample / 8;
-        rawFmt.nAvgBytesPerSec = rawFmt.nSamplesPerSec * rawFmt.nBlockAlign;
-        rawFmt.cbSize = 0;
-
-        const WAVEFORMATEX* pTtsFormat =
-            reinterpret_cast<const WAVEFORMATEX*>(&renderFormat);
-
-        if (!OpenWaveFile(ttsWriterRaw, file1.c_str(), &rawFmt) ||
-            !OpenWaveFile(ttsWriterResampled, file2.c_str(), pTtsFormat))
-        {
-            DPF(L"Failed to open TTS output file: %lu\n", GetLastError());
-            pRenderClient->Release();
-            CloseHandle(hAudioEvent);
-            pAudioClient->Release();
-            pRenderDevice->Release();
-            CoUninitialize();
-            DPF_EXIT();
-            return 1;
-        }
-        useTtsFile = true;
-    }
+    // Playback is handled directly by the Speech SDK so no render device is
+    // opened here.
 
 #if API==Azure_API
     if (opts.ttsOnly)
     {
-        std::thread playback(PlaybackThread, pAudioClient, pRenderClient,
-                             reinterpret_cast<const WAVEFORMATEX&>(renderFormat),
-                             useTtsFile ? &ttsWriterResampled : nullptr,
-                             useTtsFile ? &ttsWriterRaw : nullptr);
-        SpeechSynthesisToPushAudioOutputStream();
-        g_stop = true;
-        g_captureCv.notify_all();
-        g_transcriptCv.notify_all();
-        g_translationCv.notify_all();
-        g_ttsCv.notify_all();
-        playback.join();
-        if (useTtsFile) {
-            FinalizeWaveFile(ttsWriterRaw);
-            FinalizeWaveFile(ttsWriterResampled);
-        }
-        ClearAllQueues();
-        pRenderClient->Release();
-        CloseHandle(hAudioEvent);
-        pAudioClient->Release();
-        pRenderDevice->Release();
+        SpeechSynthesisToDefaultSpeaker();
         CoUninitialize();
         DPF_EXIT();
         return 0;
@@ -1424,19 +991,11 @@ int wmain(int argc, wchar_t** argv)
         captureFormat.nSamplesPerSec * captureFormat.nBlockAlign;
     captureFormat.cbSize = 0;
 
-    UINT32 bufferFrameCount = 0;
-    pAudioClient->GetBufferSize(&bufferFrameCount);
-    DPF(L"GetBufferSize: 0x%08lx\n", bufferFrameCount);
-
     HANDLE hDevice = CreateFileW(L"\\\\.\\SysVADLoopback", GENERIC_READ, 0,
                                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hDevice == INVALID_HANDLE_VALUE)
     {
         DPF(L"Failed to open device: %lu\n", GetLastError());
-        pRenderClient->Release();
-        CloseHandle(hAudioEvent);
-        pAudioClient->Release();
-        pRenderDevice->Release();
         CoUninitialize();
         DPF_EXIT();
         return 1;
@@ -1450,10 +1009,6 @@ int wmain(int argc, wchar_t** argv)
         {
             DPF(L"Failed to open output file: %lu\n", GetLastError());
             CloseHandle(hDevice);
-            pRenderClient->Release();
-            CloseHandle(hAudioEvent);
-            pAudioClient->Release();
-            pRenderDevice->Release();
             CoUninitialize();
             DPF_EXIT();
             return 1;
@@ -1463,17 +1018,9 @@ int wmain(int argc, wchar_t** argv)
 
     DPF(L"Press F9 to stop recording...\n");
 
-    std::thread playback(PlaybackThread, pAudioClient, pRenderClient,
-                         reinterpret_cast<const WAVEFORMATEX&>(renderFormat),
-                         useTtsFile ? &ttsWriterResampled : nullptr,
-                         useTtsFile ? &ttsWriterRaw : nullptr);
 #if API==GOOGLE
-    auto ttsEncoding = EncodingFromWaveFormat(
-        reinterpret_cast<const WAVEFORMATEX&>(renderFormat));
-    // Request TTS output at 16 kHz to match the resampler's expected
-    // source rate.
-    std::thread pipeline(StartRealtimePipeline, opts.targetLang, ttsEncoding,
-                         16000);
+    auto ttsEncoding = EncodingFromWaveFormat(captureFormat);
+    std::thread pipeline(StartRealtimePipeline, opts.targetLang, ttsEncoding, 16000);
 #elif API == Azure_API
     std::thread pipeline(StartAzurePipeline, opts.targetLang);
 #endif
@@ -1491,21 +1038,9 @@ int wmain(int argc, wchar_t** argv)
     g_captureCv.notify_all();
     g_transcriptCv.notify_all();
     g_translationCv.notify_all();
-    g_ttsCv.notify_all();
     pipeline.join();
-    playback.join();
 
-    if (useTtsFile) {
-        FinalizeWaveFile(ttsWriterRaw);
-        FinalizeWaveFile(ttsWriterResampled);
-    }
     ClearAllQueues();
-
-    pRenderClient->Release();
-    CloseHandle(hAudioEvent);
-
-    pAudioClient->Release();
-    pRenderDevice->Release();
     CoUninitialize();
     DPF_EXIT();
     return 0;
