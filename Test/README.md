@@ -21,7 +21,8 @@ pip install sounddevice soundfile
 python play_audio.py <audio-file> --device <device-name-or-id>
 ```
 
-Use `python -m sounddevice` to list available devices.
+Run `python play_audio.py --list-devices` to list the available input and output
+devices. You can also use `python -m sounddevice` for detailed information.
 
 ## Real-time Speech Translation Example
 
