@@ -5,6 +5,7 @@
 typedef unsigned char* PBYTE;   // 避免拉 windows.h
 
 #define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
+#define IOCTL_SYSVAD_SET_LOOPBACK_ENABLED CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_WRITE_ACCESS)
 
 #define LOOPBACK_BUFFER_SIZE 65536
 #define LOOPBACK_POOLTAG 'LPBK'
@@ -24,6 +25,8 @@ void LoopbackBuffer_Write(_In_reads_bytes_(Length) PBYTE Data, _In_ ULONG Length
 ULONG LoopbackBuffer_Read(_Out_writes_bytes_(Length) PBYTE Data, _In_ ULONG Length);
 ULONG LoopbackBuffer_Available();
 KEVENT* LoopbackBuffer_GetEvent();
+
+extern BOOLEAN g_LoopbackEnabled;
 
 NTSTATUS LoopbackControl_CreateDevice(_In_ PDRIVER_OBJECT DriverObject);
 void LoopbackControl_DeleteDevice();
