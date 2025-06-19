@@ -54,6 +54,9 @@
 #ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
 #define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
 #endif
+#ifndef IOCTL_SYSVAD_SET_LOOPBACK_ENABLED
+#define IOCTL_SYSVAD_SET_LOOPBACK_ENABLED CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_WRITE_ACCESS)
+#endif
 
 #ifdef _DEBUG
 #define DPF_ENTER() wprintf(L"[ENTER] %S\n", __FUNCTION__)
@@ -1004,6 +1007,20 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     }
 
+    // Enable loopback capture in the driver
+    {
+        BOOLEAN enable = TRUE;
+        DWORD returned = 0;
+        DeviceIoControl(hDevice,
+                        IOCTL_SYSVAD_SET_LOOPBACK_ENABLED,
+                        &enable,
+                        sizeof(enable),
+                        nullptr,
+                        0,
+                        &returned,
+                        nullptr);
+    }
+
     WaveFileWriter wavWriter;
     bool useFile = false;
     if (opts.outputFile)
@@ -1034,6 +1051,20 @@ int wmain(int argc, wchar_t** argv)
 
     if (useFile)
         FinalizeWaveFile(wavWriter);
+
+    // Disable loopback capture before closing the handle
+    {
+        BOOLEAN enable = FALSE;
+        DWORD returned = 0;
+        DeviceIoControl(hDevice,
+                        IOCTL_SYSVAD_SET_LOOPBACK_ENABLED,
+                        &enable,
+                        sizeof(enable),
+                        nullptr,
+                        0,
+                        &returned,
+                        nullptr);
+    }
 
     CloseHandle(hDevice);
 

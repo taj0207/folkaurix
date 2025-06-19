@@ -8,6 +8,11 @@ translation and text‑to‑speech synthesis.  The translated speech is
 played back through the system default speaker using the Azure Speech
 SDK. Optionally the raw PCM data can also be written to a file.
 
+The driver also supports the `IOCTL_SYSVAD_SET_LOOPBACK_ENABLED`
+control code which toggles whether captured audio is written to the
+loopback buffer. `folkaurixsvc` sends this IOCTL with `TRUE` when it
+starts recording and with `FALSE` just before exiting.
+
 ## Building
 The project is a standard Visual Studio console application.  Add
 `folkaurixsvc.cpp` to a new Win32 project and build for x64 or any
