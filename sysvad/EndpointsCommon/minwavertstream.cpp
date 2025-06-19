@@ -1561,8 +1561,22 @@ ByteDisplacement - # of bytes to process.
     while (ByteDisplacement > 0)
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
-        m_ToneGenerator.GenerateSine(m_pDmaBuffer + bufferOffset, runWrite);
-        UpdatePeakMeter(m_pDmaBuffer + bufferOffset, runWrite);
+        PBYTE dest = m_pDmaBuffer + bufferOffset;
+
+        if (m_pMiniport->IsLoopbackPin(m_ulPin))
+        {
+            ULONG read = LoopbackBuffer_Read(dest, runWrite);
+            if (read < runWrite)
+            {
+                RtlZeroMemory(dest + read, runWrite - read);
+            }
+        }
+        else
+        {
+            m_ToneGenerator.GenerateSine(dest, runWrite);
+        }
+
+        UpdatePeakMeter(dest, runWrite);
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
     }
