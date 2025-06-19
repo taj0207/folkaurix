@@ -28,7 +28,6 @@ typedef struct _NotificationListEntry
     PKEVENT     NotificationEvent;
 } NotificationListEntry;
 
-EXT_CALLBACK   TimerNotifyRT;
 
 //=============================================================================
 // Referenced Forward
@@ -56,7 +55,6 @@ class CMiniportWaveRTStream :
 protected:
     PPORTWAVERTSTREAM           m_pPortStream;
     LIST_ENTRY                  m_NotificationList;
-    PEX_TIMER                   m_pNotificationTimer;
     ULONG                       m_ulNotificationIntervalMs;
     ULONG                       m_ulCurrentWritePosition;
     LONG                        m_IsCurrentWritePositionUpdated;
@@ -87,7 +85,6 @@ public:
 
     // Friends
     friend class                CMiniportWaveRT;
-    friend EXT_CALLBACK         TimerNotifyRT;
 protected:
     CMiniportWaveRT*            m_pMiniport;
     ULONG                       m_ulPin;
@@ -95,6 +92,7 @@ protected:
     BOOLEAN                     m_bUnregisterStream;
     ULONG                       m_ulDmaBufferSize;
     BYTE*                       m_pDmaBuffer;
+    PMDL                        m_pMdl;
     ULONG                       m_ulNotificationsPerBuffer;
     KSSTATE                     m_KsState;
     PKTIMER                     m_pTimer;
@@ -120,25 +118,12 @@ protected:
     PWAVEFORMATEXTENSIBLE       m_pWfExt;
     ULONG                       m_ulContentId;
     CSaveData                   m_SaveData;
-    ToneGenerator               m_ToneGenerator;
     GUID                        m_SignalProcessingMode;
     BOOLEAN                     m_bEoSReceived;
     BOOLEAN                     m_bLastBufferRendered;
     KSPIN_LOCK                  m_PositionSpinLock;
     AUDIOMODULE *               m_pAudioModules;
     ULONG                       m_AudioModuleCount;
-    // Member variable as config params for tone generator
-    ULONG                       m_ulHostCaptureToneFrequency;
-    ULONG                       m_ulLoopbackCaptureToneFrequency;
-    // If abs(m_dwHostCaptureToneAmplitude) + abs(m_dwHostCaptureToneDCValue) > 100
-    // m_dwHostCaptureToneDCValue will be compensated to make the sum equal to 100
-    DWORD                       m_dwHostCaptureToneAmplitude;   // must be between -100 to 100
-    DWORD                       m_dwLoopbackCaptureToneAmplitude; // must be between -100 to 100
-    DWORD                       m_dwHostCaptureToneDCOffset;   // must be between -100 to 100
-    DWORD                       m_dwLoopbackCaptureToneDCOffset; // must be between -100 to 100
-    DWORD                       m_dwHostCaptureToneInitialPhase;   // must be between -31416 to 31416
-    DWORD                       m_dwLoopbackCaptureToneInitialPhase; // must be between -31416 to 31416
-    // Member variable as config params for tone generator
 
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
     BOOL                        m_SidebandOpen;
@@ -280,10 +265,6 @@ private:
     {
         return m_pAudioModules;
     }
-        
-    VOID WriteBytes
-    (
-        _In_ ULONG ByteDisplacement
     );
     
     VOID ReadBytes

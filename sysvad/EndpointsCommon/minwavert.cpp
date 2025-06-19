@@ -181,11 +181,6 @@ Return Value:
         m_OffloadStreams = NULL;
     }
     
-    if (m_LoopbackStreams)
-    {
-        ExFreePoolWithTag( m_LoopbackStreams, MINWAVERT_POOLTAG );
-        m_LoopbackStreams = NULL;
-    }
 
     if (m_pAudioModules)
     {
@@ -389,13 +384,12 @@ Return Value:
     //
     // Init class data members
     //
-    m_ulLoopbackAllocated               = 0;
     m_ulSystemAllocated                 = 0;
     m_ulOffloadAllocated                = 0;
     m_ulKeywordDetectorAllocated        = 0;
     m_SystemStreams                     = NULL;
     m_OffloadStreams                    = NULL;
-    m_LoopbackStreams                   = NULL;
+    m_CaptureStream                     = NULL;
     m_bGfxEnabled                       = FALSE;
     m_pbMuted                           = NULL;
     m_plVolumeLevel                     = NULL;
@@ -501,23 +495,6 @@ Return Value:
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
-        if (IsLoopbackSupported())
-        {
-            if (m_ulMaxLoopbackStreams == 0)
-            {
-                DPF_EXIT();
-                return STATUS_INVALID_DEVICE_STATE;
-            }
-
-            // Loopback streams.
-            size = sizeof(PCMiniportWaveRTStream) * m_ulMaxLoopbackStreams;
-            m_LoopbackStreams = (PCMiniportWaveRTStream *)ExAllocatePool2(POOL_FLAG_NON_PAGED, size, MINWAVERT_POOLTAG);
-            if (m_LoopbackStreams == NULL)
-            {
-                DPF_EXIT();
-                return STATUS_INSUFFICIENT_RESOURCES;
-            }
-        }
 
         if (IsOffloadSupported())
         {
@@ -960,11 +937,7 @@ CMiniportWaveRT::ValidateStreamCreate
 
     if (_Capture)
     {
-        if (IsLoopbackPin(_Pin))
-        {
-            VERIFY_PIN_INSTANCE_RESOURCES_AVAILABLE(ntStatus, m_ulLoopbackAllocated, m_ulMaxLoopbackStreams);
-        }
-        else if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
+        if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
         {
             VERIFY_PIN_INSTANCE_RESOURCES_AVAILABLE(ntStatus, m_ulSystemAllocated, m_ulMaxSystemStreams);
         }
@@ -1196,19 +1169,6 @@ BOOL CMiniportWaveRT::IsSystemRenderPin(ULONG nPinId)
 }
 
 #pragma code_seg()
-BOOL CMiniportWaveRT::IsLoopbackPin(ULONG nPinId)
-{
-    DPF_ENTER();
-    AcquireFormatsAndModesLock();
-
-    PINTYPE pinType = m_DeviceFormatsAndModes[nPinId].PinType;
-
-    ReleaseFormatsAndModesLock();
-    DPF_EXIT();
-    return (pinType == RenderLoopbackPin);
-}
-
-#pragma code_seg()
 BOOL CMiniportWaveRT::IsOffloadPin(ULONG nPinId)
 {
     DPF_ENTER();
@@ -1267,6 +1227,7 @@ CMiniportWaveRT::StreamCreated
     if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
     {
         ALLOCATE_PIN_INSTANCE_RESOURCES(m_ulSystemAllocated);
+        m_CaptureStream = _Stream;
         DPF_EXIT();
         return STATUS_SUCCESS;
     }
@@ -1275,13 +1236,6 @@ CMiniportWaveRT::StreamCreated
         ALLOCATE_PIN_INSTANCE_RESOURCES(m_ulKeywordDetectorAllocated);
         DPF_EXIT();
         return STATUS_SUCCESS;
-    }
-    else if (IsLoopbackPin(_Pin))
-    {
-        ALLOCATE_PIN_INSTANCE_RESOURCES(m_ulLoopbackAllocated);
-        streams = m_LoopbackStreams;
-        count = m_ulMaxLoopbackStreams;
-        _Stream->m_SaveData.Disable(m_MixDrmRights.CopyProtect);
     }
     else if (IsSystemRenderPin(_Pin))
     {
@@ -1337,6 +1291,7 @@ CMiniportWaveRT::StreamClosed
     if (IsSystemCapturePin(_Pin) || IsCellularBiDiCapturePin(_Pin))
     {
         FREE_PIN_INSTANCE_RESOURCES(m_ulSystemAllocated);
+        if (m_CaptureStream == _Stream) m_CaptureStream = NULL;
         DPF_EXIT();
         return STATUS_SUCCESS;
     }
@@ -1345,12 +1300,6 @@ CMiniportWaveRT::StreamClosed
         FREE_PIN_INSTANCE_RESOURCES(m_ulKeywordDetectorAllocated);
         DPF_EXIT();
         return STATUS_SUCCESS;
-    }
-    else if (IsLoopbackPin(_Pin))
-    {
-        FREE_PIN_INSTANCE_RESOURCES(m_ulLoopbackAllocated);
-        streams = m_LoopbackStreams;
-        count = m_ulMaxLoopbackStreams;
     }
     else if (IsSystemRenderPin(_Pin))
     {
@@ -1675,7 +1624,6 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
     // This method is valid only on streaming pins.
     //
     if (IsSystemRenderPin(kspPin->PinId) ||
-        IsLoopbackPin(kspPin->PinId) ||
         IsOffloadPin(kspPin->PinId) ||
         IsSystemCapturePin(kspPin->PinId) ||
         IsKeywordDetectorPin(kspPin->PinId) ||
@@ -1750,19 +1698,6 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
                 BOOL bFound = FALSE;
                 ULONG i = 0;
 
-                // For loopback pin, get default format from host pin structures
-                if (IsLoopbackPin(kspPin->PinId))
-                {
-                    for (i = 0; i < m_DeviceFormatsAndModesCount; i++)
-                    {
-                        if (m_DeviceFormatsAndModes[i].PinType == SystemRenderPin)
-                        {
-                            modeInfo = m_DeviceFormatsAndModes[i].ModeAndDefaultFormat;
-                            numModes = m_DeviceFormatsAndModes[i].ModeAndDefaultFormatCount;
-                            break;
-                        }
-                    }
-                }
 
                 // Iterate through FormatsAndModes to find the 'DefaultFormat' for the 'DEFAULT' processing mode
                 // Make note of the RAW format for cases where DEFAULT mode is not supported by endpoint
@@ -1823,8 +1758,7 @@ CMiniportWaveRT::PropertyHandlerProposedFormat
     {
         pKsFormat = (PKSDATAFORMAT)PropertyRequest->Value;
         ntStatus = IsFormatSupported(kspPin->PinId,
-            IsSystemCapturePin(kspPin->PinId) || IsCellularBiDiCapturePin(kspPin->PinId) ||
-            IsLoopbackPin(kspPin->PinId),
+            IsSystemCapturePin(kspPin->PinId) || IsCellularBiDiCapturePin(kspPin->PinId),
             pKsFormat);
         if (!NT_SUCCESS(ntStatus))
         {

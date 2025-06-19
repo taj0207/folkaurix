@@ -135,20 +135,18 @@ class CMiniportWaveRT :
     public CUnknown
 {
 private:
-    ULONG                               m_ulLoopbackAllocated;
     ULONG                               m_ulSystemAllocated;
     ULONG                               m_ulOffloadAllocated;
     ULONG                               m_ulKeywordDetectorAllocated;
 
     ULONG                               m_ulMaxSystemStreams;
     ULONG                               m_ulMaxOffloadStreams;
-    ULONG                               m_ulMaxLoopbackStreams;
     ULONG                               m_ulMaxKeywordDetectorStreams;
 
     // weak ref of running streams.
     PCMiniportWaveRTStream            * m_SystemStreams;
     PCMiniportWaveRTStream            * m_OffloadStreams;
-    PCMiniportWaveRTStream            * m_LoopbackStreams;
+    PCMiniportWaveRTStream              m_CaptureStream;
 
     BOOL                                m_bGfxEnabled;
     PBOOL                               m_pbMuted;
@@ -290,7 +288,6 @@ public:
         :CUnknown(0),
         m_ulMaxSystemStreams(0),
         m_ulMaxOffloadStreams(0),
-        m_ulMaxLoopbackStreams(0),
         m_ulMaxKeywordDetectorStreams(0),
         m_DeviceType(MiniportPair->DeviceType),
         m_DeviceContext(DeviceContext),
@@ -321,7 +318,6 @@ public:
                     {
                         m_ulMaxSystemStreams = m_FilterDesc.Pins[KSPIN_WAVE_RENDER_SINK_SYSTEM].MaxFilterInstanceCount;
                         m_ulMaxOffloadStreams = m_FilterDesc.Pins[KSPIN_WAVE_RENDER_SINK_OFFLOAD].MaxFilterInstanceCount;
-                        m_ulMaxLoopbackStreams = m_FilterDesc.Pins[KSPIN_WAVE_RENDER_SINK_LOOPBACK].MaxFilterInstanceCount;
                     }
                 }
                 else
@@ -329,7 +325,6 @@ public:
                     if (m_FilterDesc.PinCount > KSPIN_WAVE_RENDER2_SOURCE)
                     {
                         m_ulMaxSystemStreams = m_FilterDesc.Pins[KSPIN_WAVE_RENDER2_SINK_SYSTEM].MaxFilterInstanceCount;
-                        m_ulMaxLoopbackStreams = m_FilterDesc.Pins[KSPIN_WAVE_RENDER2_SINK_LOOPBACK].MaxFilterInstanceCount;
                     }
                     else if(m_FilterDesc.PinCount > KSPIN_WAVE_RENDER3_SOURCE)
                     {
@@ -577,14 +572,6 @@ protected:
         return (m_DeviceType == eCellularDevice) ? TRUE : FALSE;
     }
 
-    BOOL IsLoopbackSupported()
-    {
-
-        //
-        // It is assumed that loopback is supported when offload is supported
-        //
-        return (m_DeviceFlags & (ENDPOINT_LOOPBACK_SUPPORTED | ENDPOINT_OFFLOAD_SUPPORTED)) ? TRUE : FALSE;
-    }
 
     BOOL IsOffloadSupported()
     {
@@ -597,7 +584,6 @@ protected:
 
     BOOL IsSystemRenderPin(ULONG nPinId);
 
-    BOOL IsLoopbackPin(ULONG nPinId);
 
     BOOL IsOffloadPin(ULONG nPinId);
 
@@ -614,12 +600,6 @@ protected:
     }
 
 
-    ULONG GetLoopbackPinId()
-    {
-        ASSERT(IsRenderDevice());
-        ASSERT(!IsCellularDevice());
-        return IsOffloadSupported() ? KSPIN_WAVE_RENDER_SINK_LOOPBACK : KSPIN_WAVE_RENDER2_SINK_LOOPBACK;
-    }
 
 
     ULONG GetOffloadPinId()
