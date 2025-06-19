@@ -265,6 +265,10 @@ private:
     {
         return m_pAudioModules;
     }
+
+    VOID WriteBytes
+    (
+        _In_ ULONG ByteDisplacement
     );
     
     VOID ReadBytes

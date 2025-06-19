@@ -1283,10 +1283,14 @@ NTSTATUS CMiniportWaveRTStream::SetState
 
             if (m_ulNotificationIntervalMs > 0)
             {
-                // Set timer for 1 ms. This will cause DPC to run every 1 ms but driver will send out 
-                // notification events only after notification interval. This timer is used by Sysvad to 
+                // Set timer for 1 ms. This will cause DPC to run every 1 ms but driver will send out
+                // notification events only after notification interval. This timer is used by Sysvad to
                 // emulate hardware and send out notification event. Real hardware should not use this
                 // timer to fire notification event as it will drain power if the timer is running at 1 msec.
+            }
+
+            break;
+    }
 
     m_KsState = State_;
 
@@ -1427,14 +1431,25 @@ VOID CMiniportWaveRTStream::UpdatePosition
 
 //=============================================================================
 #pragma code_seg()
-VOID CMiniportWaveRTStream::WriteBytes
-(
+VOID CMiniportWaveRTStream::WriteBytes(
     _In_ ULONG ByteDisplacement
-)
+    )
 /*++
 
 Routine Description:
 
+    Stub implementation used in this sample. The driver does not
+    generate rendered data so this routine simply ignores the
+    number of bytes indicated by ByteDisplacement.
+
+Arguments:
+
+    ByteDisplacement - Number of bytes that would have been written.
+
+--*/
+{
+    UNREFERENCED_PARAMETER(ByteDisplacement);
+}
 
 //=============================================================================
 #pragma code_seg()
@@ -1715,7 +1730,3 @@ CMiniportWaveRTStream::PropertyHandlerModuleCommand
                 GetAudioModuleList(),
                 GetAudioModuleListCount());
 } // PropertyHandlerModuleCommand
-
-//=============================================================================
-#pragma code_seg()
-void
