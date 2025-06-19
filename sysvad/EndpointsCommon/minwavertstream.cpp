@@ -1594,7 +1594,10 @@ ByteDisplacement - # of bytes to process.
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
         m_SaveData.WriteData(m_pDmaBuffer + bufferOffset, runWrite);
-        LoopbackBuffer_Write(m_pDmaBuffer + bufferOffset, runWrite);
+        if (g_LoopbackEnabled)
+        {
+            LoopbackBuffer_Write(m_pDmaBuffer + bufferOffset, runWrite);
+        }
         UpdatePeakMeter(m_pDmaBuffer + bufferOffset, runWrite);
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;

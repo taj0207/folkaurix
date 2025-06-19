@@ -61,6 +61,20 @@ static NTSTATUS LoopbackDispatch(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP 
                 status = STATUS_INSUFFICIENT_RESOURCES;
             }
         }
+        else if (irpSp->Parameters.DeviceIoControl.IoControlCode == IOCTL_SYSVAD_SET_LOOPBACK_ENABLED)
+        {
+            if (irpSp->Parameters.DeviceIoControl.InputBufferLength >= sizeof(BOOLEAN) &&
+                Irp->AssociatedIrp.SystemBuffer)
+            {
+                BOOLEAN enable = *(PBOOLEAN)Irp->AssociatedIrp.SystemBuffer;
+                g_LoopbackEnabled = enable ? TRUE : FALSE;
+                status = STATUS_SUCCESS;
+            }
+            else
+            {
+                status = STATUS_INVALID_PARAMETER;
+            }
+        }
         break;
     default:
         break;

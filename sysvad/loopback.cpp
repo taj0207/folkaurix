@@ -1,6 +1,7 @@
 #include "loopback.h"
 
 static LOOPBACK_BUFFER g_LoopbackBuffer = {0};
+BOOLEAN g_LoopbackEnabled = FALSE;
 
 NTSTATUS LoopbackBuffer_Initialize()
 {
