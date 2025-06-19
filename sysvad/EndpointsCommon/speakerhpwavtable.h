@@ -52,7 +52,6 @@ Abstract:
 //
 #define SPEAKERHP_MAX_INPUT_SYSTEM_STREAMS              6
 #define SPEAKERHP_MAX_INPUT_OFFLOAD_STREAMS             MAX_INPUT_OFFLOAD_STREAMS
-#define SPEAKERHP_MAX_OUTPUT_LOOPBACK_STREAMS           MAX_OUTPUT_LOOPBACK_STREAMS
 
 //=============================================================================
 static 
@@ -462,13 +461,6 @@ PIN_DEVICE_FORMATS_AND_MODES SpeakerHpPinDeviceFormatsAndModes[] =
         SIZEOF_ARRAY(SpeakerHpOffloadPinSupportedDeviceModes),
     },
     {
-        RenderLoopbackPin,
-        SpeakerHpHostPinSupportedDeviceFormats,   // Must support all the formats supported by host pin
-        SIZEOF_ARRAY(SpeakerHpHostPinSupportedDeviceFormats),
-        NULL,   // loopback doesn't support modes.
-        0
-    },
-    {
         BridgePin,
         NULL,
         0,
@@ -553,10 +545,6 @@ PKSDATARANGE SpeakerHpPinDataRangePointersOffloadStream[] =
 };
 
 static
-PKSDATARANGE SpeakerHpPinDataRangePointersLoopbackStream[] =
-{
-    PKSDATARANGE(&SpeakerHpPinDataRangesStream[2])
-};
 
 //=============================================================================
 static
@@ -689,10 +677,7 @@ PCPIN_DESCRIPTOR SpeakerHpWaveMiniportPins[] =
             0
         }
     },
-    // Wave Out Streaming Pin (Renderer) KSPIN_WAVE_RENDER_SINK_LOOPBACK
     {
-        SPEAKERHP_MAX_OUTPUT_LOOPBACK_STREAMS,
-        SPEAKERHP_MAX_OUTPUT_LOOPBACK_STREAMS, 
         0,
         NULL,
         {
@@ -700,36 +685,6 @@ PCPIN_DESCRIPTOR SpeakerHpWaveMiniportPins[] =
             NULL,
             0,
             NULL,
-            SIZEOF_ARRAY(SpeakerHpPinDataRangePointersLoopbackStream),
-            SpeakerHpPinDataRangePointersLoopbackStream,
-            KSPIN_DATAFLOW_OUT,              
-            KSPIN_COMMUNICATION_SINK,
-            &KSNODETYPE_AUDIO_LOOPBACK,
-            NULL,
-            0
-        }
-    },
-    // Wave Out Bridge Pin (Renderer) KSPIN_WAVE_RENDER_SOURCE
-    {
-        0,
-        0,
-        0,
-        NULL,
-        {
-            0,
-            NULL,
-            0,
-            NULL,
-            SIZEOF_ARRAY(SpeakerHpPinDataRangePointersBridge),
-            SpeakerHpPinDataRangePointersBridge,
-            KSPIN_DATAFLOW_OUT,
-            KSPIN_COMMUNICATION_NONE,
-            &KSCATEGORY_AUDIO,
-            NULL,
-            0
-        }
-    },
-};
 
 //=============================================================================
 static
@@ -747,7 +702,6 @@ PCNODE_DESCRIPTOR SpeakerHpWaveMiniportNodes[] =
 //
 //                   ----------------------------      
 //                   |                          |      
-//  System Pin   0-->|                          |--> 2 Loopback Pin
 //                   |   HW Audio Engine node   |      
 //  Offload Pin  1-->|                          |--> 3 KSPIN_WAVE_RENDER_SOURCE
 //                   |                          |      
@@ -757,7 +711,6 @@ PCCONNECTION_DESCRIPTOR SpeakerHpWaveMiniportConnections[] =
 {
     { PCFILTER_NODE,            KSPIN_WAVE_RENDER_SINK_SYSTEM,     KSNODE_WAVE_AUDIO_ENGINE,   1 },
     { PCFILTER_NODE,            KSPIN_WAVE_RENDER_SINK_OFFLOAD,    KSNODE_WAVE_AUDIO_ENGINE,   2 },
-    { KSNODE_WAVE_AUDIO_ENGINE, 3,                                 PCFILTER_NODE,              KSPIN_WAVE_RENDER_SINK_LOOPBACK },
     { KSNODE_WAVE_AUDIO_ENGINE, 0,                                 PCFILTER_NODE,              KSPIN_WAVE_RENDER_SOURCE },
 };
 

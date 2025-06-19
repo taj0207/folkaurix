@@ -29,16 +29,14 @@ DEFINE_GUIDSTRUCT("946A7B1A-EBBC-422a-A81F-F07C8D40D3B4", NAME_SYSVAD_SIMPLE);
 // Default pin instances.
 #define MAX_INPUT_SYSTEM_STREAMS        1
 #define MAX_INPUT_OFFLOAD_STREAMS       3
-#define MAX_OUTPUT_LOOPBACK_STREAMS     1
 
 // Wave pins - offloading supported.
 enum 
 {
     KSPIN_WAVE_RENDER_SINK_SYSTEM = 0, 
-    KSPIN_WAVE_RENDER_SINK_OFFLOAD, 
-    KSPIN_WAVE_RENDER_SINK_LOOPBACK, 
+    KSPIN_WAVE_RENDER_SINK_OFFLOAD,
     KSPIN_WAVE_RENDER_SOURCE
-};
+}; 
 
 // Wave pins - no mix, no offload
 enum 

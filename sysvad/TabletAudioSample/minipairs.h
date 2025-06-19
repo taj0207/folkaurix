@@ -102,38 +102,6 @@ ENDPOINT_MINIPAIR MicInMiniports =
 };
 
 // Loopback capture endpoint
-static
-PHYSICALCONNECTIONTABLE LoopbackTopologyPhysicalConnections[] =
-{
-    {
-        KSPIN_TOPO_BRIDGE,
-        KSPIN_WAVE_BRIDGE,
-        CONNECTIONTYPE_TOPOLOGY_OUTPUT
-    }
-};
-
-static
-ENDPOINT_MINIPAIR LoopbackMiniports =
-{
-    eLoopbackCaptureDevice,
-    L"TopologyLoopback",
-    NULL,
-    CreateMiniportTopologySYSVAD,
-    &MicInTopoMiniportFilterDescriptor,
-    0, NULL,
-    L"folkaurix_loopback",
-    NULL,
-    CreateMiniportWaveRTSYSVAD,
-    &SpeakerWaveMiniportFilterDescriptor,
-    0, NULL,
-    MICIN_DEVICE_MAX_CHANNELS,
-    MicInPinDeviceFormatsAndModes,
-    SIZEOF_ARRAY(MicInPinDeviceFormatsAndModes),
-    LoopbackTopologyPhysicalConnections,
-    SIZEOF_ARRAY(LoopbackTopologyPhysicalConnections),
-    ENDPOINT_NO_FLAGS,
-    NULL, 0, NULL,
-};
 
 //------------------------------------------------------------------------------
 // Endpoint tables
@@ -150,7 +118,6 @@ static
 PENDPOINT_MINIPAIR  g_CaptureEndpoints[] =
 {
     &MicInMiniports,
-    &LoopbackMiniports,
 };
 
 #define g_cCaptureEndpoints (SIZEOF_ARRAY(g_CaptureEndpoints))

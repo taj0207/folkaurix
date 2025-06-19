@@ -5,7 +5,6 @@
 #include "minwavert.h"
 #include "minwavertstream.h"
 #include "UnittestData.h"
-#include "../loopback.h"
 #include "AudioModuleHelper.h"
 #define MINWAVERTSTREAM_POOLTAG 'SRWM'
 
@@ -90,16 +89,6 @@ Return Value:
         ExFreePoolWithTag( m_pWfExt, MINWAVERTSTREAM_POOLTAG );
         m_pWfExt = NULL;
     }
-    if (m_pNotificationTimer)
-    {
-        ExDeleteTimer
-        (
-            m_pNotificationTimer, 
-            TRUE, // Cancel the timer if it is currently set.
-            TRUE, // Wait for the timer to finish expiring and for any callback to a ExTimerCallback routine to finish.
-            NULL
-         );
-    }
 
     // Since we just cancelled the notification timer, wait for all queued 
     // DPCs to complete before we free the notification DPC.
@@ -118,61 +107,6 @@ DPF_EXIT();
 //=============================================================================
 #pragma code_seg("PAGE")
 
-NTSTATUS CMiniportWaveRTStream::ReadRegistrySettings()
-{
-    PAGED_CODE();
-
-    NTSTATUS                    ntStatus;
-    PDRIVER_OBJECT              DriverObject;
-    HANDLE                      DriverKey;
-
-    RTL_QUERY_REGISTRY_TABLE    paramTable[] = {
-        // QueryRoutine     Flags                                               Name                            EntryContext                            DefaultType                                                     DefaultData                                 DefaultLength
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"HostCaptureToneFrequency",        &m_ulHostCaptureToneFrequency,          (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_ulHostCaptureToneFrequency,              sizeof(DWORD) },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"LoopbackCaptureToneFrequency",    &m_ulLoopbackCaptureToneFrequency,      (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_ulLoopbackCaptureToneFrequency,          sizeof(DWORD) },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"HostCaptureToneAmplitude",        &m_dwHostCaptureToneAmplitude,          (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_dwHostCaptureToneAmplitude,              sizeof(DWORD) },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"LoopbackCaptureToneAmplitude",    &m_dwLoopbackCaptureToneAmplitude,      (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_dwLoopbackCaptureToneAmplitude,          sizeof(DWORD) },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"HostCaptureToneDCOffset",         &m_dwHostCaptureToneDCOffset,           (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_dwHostCaptureToneDCOffset,               sizeof(DWORD) },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"LoopbackCaptureToneDCOffset",     &m_dwLoopbackCaptureToneDCOffset,       (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_dwLoopbackCaptureToneDCOffset,           sizeof(DWORD) },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"HostCaptureToneInitialPhase",     &m_dwHostCaptureToneInitialPhase,       (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_dwHostCaptureToneInitialPhase,           sizeof(DWORD) },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"LoopbackCaptureToneInitialPhase", &m_dwLoopbackCaptureToneInitialPhase,   (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD,  &m_dwLoopbackCaptureToneInitialPhase,       sizeof(DWORD) },
-        { NULL,   0,                                                        NULL,                               NULL,                                   0,                                                              NULL,                                       0 }
-    };
-
-    DriverObject = WdfDriverWdmGetDriverObject(WdfGetDriver());
-    DriverKey = NULL;
-    ntStatus = IoOpenDriverRegistryKey(DriverObject, 
-                                 DriverRegKeyParameters,
-                                 KEY_READ,
-                                 0,
-                                 &DriverKey);
-
-    if (!NT_SUCCESS(ntStatus))
-    {
-        return ntStatus;
-    }
-
-    ntStatus = RtlQueryRegistryValues(RTL_REGISTRY_HANDLE,
-                                  (PCWSTR) DriverKey,
-                                  &paramTable[0],
-                                  NULL,
-                                  NULL);
-
-    if (!NT_SUCCESS(ntStatus)) 
-    {
-        DPF(D_VERBOSE, ("RtlQueryRegistryValues failed, using default values, 0x%x", ntStatus));
-        //
-        // Don't return error because we will operate with default values.
-        //
-    }
-
-    if (DriverKey)
-    {
-        ZwClose(DriverKey);
-    }
-
-    return ntStatus;
-}
 
 NTSTATUS
 CMiniportWaveRTStream::Init
@@ -221,6 +155,7 @@ Return Value:
     m_bCapture = FALSE;
     m_ulDmaBufferSize = 0;
     m_pDmaBuffer = NULL;
+    m_pMdl = NULL;
     m_ulNotificationsPerBuffer = 0;
     m_KsState = KSSTATE_STOP;
     m_pTimer = NULL;
@@ -252,14 +187,7 @@ Return Value:
     m_pAudioModules = NULL;
     m_AudioModuleCount = 0;
 
-    m_ulHostCaptureToneFrequency = IsEqualGUID(SignalProcessingMode, AUDIO_SIGNALPROCESSINGMODE_RAW) ? 1000 : 2000;
-    m_ulLoopbackCaptureToneFrequency = 3000; // 3 kHz
-    m_dwHostCaptureToneAmplitude = 50; 
-    m_dwLoopbackCaptureToneAmplitude = 50; 
-    m_dwHostCaptureToneDCOffset = 0; 
-    m_dwLoopbackCaptureToneDCOffset = 0; 
-    m_dwHostCaptureToneInitialPhase = 0; 
-    m_dwLoopbackCaptureToneInitialPhase = 0; 
+
 
 
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
@@ -274,15 +202,6 @@ Return Value:
     // Initialize the spinlock to synchronize position updates
     KeInitializeSpinLock(&m_PositionSpinLock);
 
-    m_pNotificationTimer = ExAllocateTimer(
-         TimerNotifyRT,
-         this,
-         EX_TIMER_HIGH_RESOLUTION
-    );
-    if (!m_pNotificationTimer)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
 
     pWfEx = GetWaveFormatEx(DataFormat_);
     if (NULL == pWfEx) 
@@ -348,73 +267,7 @@ Return Value:
 
     if (m_bCapture)
     {
-        ReadRegistrySettings();
-            DWORD toneFrequency = 0;
-            DWORD toneAmplitude = 0;
-            DWORD toneDCOffset = 0;
-            DWORD toneInitialPhase = 0;
-
-            double toneAmplitudeDouble = 0;
-            double toneDCOffsetDouble = 0;
-            double toneInitialPhaseDouble = 0;
-
-            if (m_pMiniport->IsLoopbackPin(Pin_))
-            {
-                //
-                // Loopbacks pins use a different frequency for test validation.
-                //
-                toneFrequency = m_ulLoopbackCaptureToneFrequency;
-                toneAmplitude = m_dwLoopbackCaptureToneAmplitude;
-                toneDCOffset  = m_dwLoopbackCaptureToneDCOffset;
-                toneInitialPhase = m_dwLoopbackCaptureToneInitialPhase;
-            }
-            else
-            {
-                //
-                // Init sine wave generator. To exercise the SignalProcessingMode parameter
-                // this sample driver selects the frequency based on the parameter.
-                //
-                toneFrequency = m_ulHostCaptureToneFrequency;
-                toneAmplitude = m_dwHostCaptureToneAmplitude;
-                toneDCOffset  = m_dwHostCaptureToneDCOffset;
-                toneInitialPhase = m_dwHostCaptureToneInitialPhase;
-            }
-
-            if (labs(toneAmplitude) > 100)
-            {
-                toneAmplitude = toneAmplitude > 0 ? 100 : -100;
-            }
-
-            if (labs(toneDCOffset) > 100)
-            {
-                toneDCOffset = toneDCOffset > 0 ? 100 : -100;
-            }
-
-            DWORD abssum = labs(toneAmplitude) + labs(toneDCOffset);
-            
-            if ( abssum > 100)
-            {
-                toneAmplitudeDouble = ((double)toneAmplitude) / abssum;
-                toneDCOffsetDouble = ((double)toneDCOffset) / abssum;
-            }
-            else
-            {
-                toneAmplitudeDouble = ((double)toneAmplitude) / 100.0;
-                toneDCOffsetDouble = ((double)toneDCOffset) / 100.0;
-            }
-
-            if (labs(toneInitialPhase) > 31416)
-            {
-                toneInitialPhase = toneInitialPhase > 0 ? 31416 : -31416;
-            }
-
-            toneInitialPhaseDouble = (double)toneInitialPhase / 10000;
-
-            ntStatus = m_ToneGenerator.Init(toneFrequency, toneAmplitudeDouble, toneDCOffsetDouble, toneInitialPhaseDouble, m_pWfExt);
-        if (!NT_SUCCESS(ntStatus))
-        {
-            return ntStatus;
-        }
+        // Capture stream uses shared render buffer. No tone generation needed.
     }
     else if (!g_DoNotCreateDataFiles)
     {
@@ -572,34 +425,57 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
     highAddress.HighPart = 0;
     highAddress.LowPart = MAXULONG;
 
-    PMDL pBufferMdl = m_pPortStream->AllocatePagesForMdl (highAddress, RequestedSize_);
+    PMDL pBufferMdl = NULL;
 
-    if (NULL == pBufferMdl)
+    if (m_bCapture && m_pMiniport->m_SystemStreams && m_pMiniport->m_SystemStreams[0])
     {
-        ntStatus  = STATUS_UNSUCCESSFUL; 
-        goto Done;
+        pBufferMdl = m_pMiniport->m_SystemStreams[0]->m_pMdl;
+        m_pDmaBuffer = m_pMiniport->m_SystemStreams[0]->m_pDmaBuffer;
+        m_ulDmaBufferSize = m_pMiniport->m_SystemStreams[0]->m_ulDmaBufferSize;
+        m_ulNotificationsPerBuffer = m_pMiniport->m_SystemStreams[0]->m_ulNotificationsPerBuffer;
+        m_pMdl = pBufferMdl;
+        m_ulNotificationIntervalMs = m_pMiniport->m_SystemStreams[0]->m_ulNotificationIntervalMs;
+    }
+    else
+    {
+        pBufferMdl = m_pPortStream->AllocatePagesForMdl(highAddress, RequestedSize_);
+        if (NULL == pBufferMdl)
+        {
+            ntStatus  = STATUS_UNSUCCESSFUL;
+            goto Done;
+        }
+
+        m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
+        m_ulNotificationsPerBuffer = NotificationCount_;
+        m_ulDmaBufferSize = RequestedSize_;
+        m_pMdl = pBufferMdl;
+        ulBufferDurationMs = (RequestedSize_ * 1000) / m_ulDmaMovementRate;
+        m_ulNotificationIntervalMs = ulBufferDurationMs / NotificationCount_;
     }
 
-    // From MSDN: 
-    // "Since the Windows audio stack does not support a mechanism to express memory access 
-    //  alignment requirements for buffers, audio drivers must select a caching type for mapped
-    //  memory buffers that does not impose platform-specific alignment requirements. In other 
-    //  words, the caching type used by the audio driver for mapped memory buffers, must not make 
-    //  assumptions about the memory alignment requirements for any specific platform.
-    //
-    //  This method maps the physical memory pages in the MDL into kernel-mode virtual memory. 
-    //  Typically, the miniport driver calls this method if it requires software access to the 
-    //  scatter-gather list for an audio buffer. In this case, the storage for the scatter-gather 
-    //  list must have been allocated by the IPortWaveRTStream::AllocatePagesForMdl or 
-    //  IPortWaveRTStream::AllocateContiguousPagesForMdl method. 
-    //
-    //  A WaveRT miniport driver should not require software access to the audio buffer itself."
-    //   
-    m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
-    m_ulNotificationsPerBuffer = NotificationCount_;
-    m_ulDmaBufferSize = RequestedSize_;
+    if (!(m_bCapture && m_pMiniport->m_SystemStreams && m_pMiniport->m_SystemStreams[0]))
+    {
+        // From MSDN:
+        // "Since the Windows audio stack does not support a mechanism to express memory access
+        //  alignment requirements for buffers, audio drivers must select a caching type for mapped
+        //  memory buffers that does not impose platform-specific alignment requirements. In other
+        //  words, the caching type used by the audio driver for mapped memory buffers, must not make
+        //  assumptions about the memory alignment requirements for any specific platform.
+        //
+        //  This method maps the physical memory pages in the MDL into kernel-mode virtual memory.
+        //  Typically, the miniport driver calls this method if it requires software access to the
+        //  scatter-gather list for an audio buffer. In this case, the storage for the scatter-gather
+        //  list must have been allocated by the IPortWaveRTStream::AllocatePagesForMdl or
+        //  IPortWaveRTStream::AllocateContiguousPagesForMdl method.
+        //
+        //  A WaveRT miniport driver should not require software access to the audio buffer itself."
+        //
+        m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
+    }
     ulBufferDurationMs = (RequestedSize_ * 1000) / m_ulDmaMovementRate;
-    m_ulNotificationIntervalMs = ulBufferDurationMs / NotificationCount_;
+    if (m_ulNotificationsPerBuffer == 0) m_ulNotificationsPerBuffer = NotificationCount_;
+    if (m_ulDmaBufferSize == 0) m_ulDmaBufferSize = RequestedSize_;
+    if (m_ulNotificationIntervalMs == 0) m_ulNotificationIntervalMs = ulBufferDurationMs / NotificationCount_;
 
     *AudioBufferMdl_ = pBufferMdl;
     *ActualSize_ = RequestedSize_;
@@ -783,13 +659,17 @@ _In_        ULONG       Size_
 
     if (Mdl_ != NULL)
     {
-        if (m_pDmaBuffer != NULL)
+        if (!(m_bCapture && m_pMiniport->m_SystemStreams && m_pMiniport->m_SystemStreams[0]))
         {
-            m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
-            m_pDmaBuffer = NULL;
-        }
+            if (m_pDmaBuffer != NULL)
+            {
+                m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
+                m_pDmaBuffer = NULL;
+                m_pMdl = NULL;
+            }
 
-        m_pPortStream->FreePagesFromMdl(Mdl_);
+            m_pPortStream->FreePagesFromMdl(Mdl_);
+        }
     }
 
     m_ulDmaBufferSize = 0;
@@ -821,15 +701,33 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
     highAddress.HighPart = 0;
     highAddress.LowPart = MAXULONG;
 
-    PMDL pBufferMdl = m_pPortStream->AllocatePagesForMdl(highAddress, RequestedSize_);
-
-    if (NULL == pBufferMdl)
+    PMDL pBufferMdl = NULL;
+    if (m_bCapture && m_pMiniport->m_SystemStreams && m_pMiniport->m_SystemStreams[0])
     {
-        DPF_EXIT();
-        return STATUS_UNSUCCESSFUL;
+        pBufferMdl = m_pMiniport->m_SystemStreams[0]->m_pMdl;
+        m_pDmaBuffer = m_pMiniport->m_SystemStreams[0]->m_pDmaBuffer;
+        m_ulDmaBufferSize = m_pMiniport->m_SystemStreams[0]->m_ulDmaBufferSize;
+        m_ulNotificationsPerBuffer = m_pMiniport->m_SystemStreams[0]->m_ulNotificationsPerBuffer;
+        m_ulNotificationIntervalMs = m_pMiniport->m_SystemStreams[0]->m_ulNotificationIntervalMs;
+    }
+    else
+    {
+        pBufferMdl = m_pPortStream->AllocatePagesForMdl(highAddress, RequestedSize_);
+        if (NULL == pBufferMdl)
+        {
+            DPF_EXIT();
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
+        m_ulDmaBufferSize = RequestedSize_;
+        m_ulNotificationsPerBuffer = 0;
+        m_ulNotificationIntervalMs = 0;
     }
 
-    // From MSDN: 
+    m_pMdl = pBufferMdl;
+
+    // From MSDN:
     // "Since the Windows audio stack does not support a mechanism to express memory access 
     //  alignment requirements for buffers, audio drivers must select a caching type for mapped
     //  memory buffers that does not impose platform-specific alignment requirements. In other 
@@ -1303,8 +1201,7 @@ NTSTATUS CMiniportWaveRTStream::SetState
                 // Pause DMA
                 if (m_ulNotificationIntervalMs > 0)
                 {
-                    ExCancelTimer(m_pNotificationTimer, NULL);
-                    KeFlushQueuedDpcs(); 
+ 
 
                     // If pin is transitioning from RUN, save the time since last buffer completion event was sent 
                     // so if the pin goes to RUN state again we can send the buffer completion event at correct time.
@@ -1390,18 +1287,6 @@ NTSTATUS CMiniportWaveRTStream::SetState
                 // notification events only after notification interval. This timer is used by Sysvad to 
                 // emulate hardware and send out notification event. Real hardware should not use this
                 // timer to fire notification event as it will drain power if the timer is running at 1 msec.
-                ExSetTimer
-                (
-                    m_pNotificationTimer,
-                    (-1) * HNSTIME_PER_MILLISECOND,
-                    HNSTIME_PER_MILLISECOND, // 1 ms 
-                    NULL
-                 );
-
-            }
-
-            break;
-    }
 
     m_KsState = State_;
 
@@ -1471,8 +1356,7 @@ VOID CMiniportWaveRTStream::UpdatePosition
 
     if (m_bCapture)
     {
-        // Write sine wave to buffer.
-        WriteBytes(ByteDisplacement);
+        // Capture stream uses shared buffer; no data generation required.
     }
     else
     {
@@ -1519,6 +1403,10 @@ VOID CMiniportWaveRTStream::UpdatePosition
             DbgPrint("%s(): Line(%d)\n", __FUNCTION__, __LINE__);
             ReadBytes(ByteDisplacement);
         }
+        if (m_pMiniport->m_CaptureStream)
+        {
+            m_pMiniport->m_CaptureStream->UpdatePosition(ilQPC);
+        }
     }
     
     // Increment the DMA position by the number of bytes displaced since the last
@@ -1547,40 +1435,6 @@ VOID CMiniportWaveRTStream::WriteBytes
 
 Routine Description:
 
-This function writes the audio buffer using a sine wave generator
-Arguments:
-
-ByteDisplacement - # of bytes to process.
-
---*/
-{
-    ULONG bufferOffset = m_ullLinearPosition % m_ulDmaBufferSize;
-
-    // Normally this will loop no more than once for a single wrap, but if
-    // many bytes have been displaced then this may loops many times.
-    while (ByteDisplacement > 0)
-    {
-        ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
-        PBYTE dest = m_pDmaBuffer + bufferOffset;
-
-        if (m_pMiniport->IsLoopbackPin(m_ulPin))
-        {
-            ULONG read = LoopbackBuffer_Read(dest, runWrite);
-            if (read < runWrite)
-            {
-                RtlZeroMemory(dest + read, runWrite - read);
-            }
-        }
-        else
-        {
-            m_ToneGenerator.GenerateSine(dest, runWrite);
-        }
-
-        UpdatePeakMeter(dest, runWrite);
-        bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
-        ByteDisplacement -= runWrite;
-    }
-}
 
 //=============================================================================
 #pragma code_seg()
@@ -1608,16 +1462,10 @@ ByteDisplacement - # of bytes to process.
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
         m_SaveData.WriteData(m_pDmaBuffer + bufferOffset, runWrite);
-        if (g_LoopbackEnabled)
-        {
-            LoopbackBuffer_Write(m_pDmaBuffer + bufferOffset, runWrite);
-        }
         UpdatePeakMeter(m_pDmaBuffer + bufferOffset, runWrite);
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
     }
-
-    KeSetEvent(LoopbackBuffer_GetEvent(), IO_NO_INCREMENT, FALSE);
 }
 
 //=============================================================================
@@ -1871,131 +1719,3 @@ CMiniportWaveRTStream::PropertyHandlerModuleCommand
 //=============================================================================
 #pragma code_seg()
 void
-TimerNotifyRT
-(
-    _In_      PEX_TIMER    Timer,
-    _In_opt_  PVOID        DeferredContext
-)
-{
-    LARGE_INTEGER qpc;
-    LARGE_INTEGER qpcFrequency;
-    BOOL bufferCompleted = FALSE;
-
-    UNREFERENCED_PARAMETER(Timer);
-
-    _IRQL_limited_to_(DISPATCH_LEVEL);
-
-    CMiniportWaveRTStream* _this = (CMiniportWaveRTStream*)DeferredContext;
-    
-    if (NULL == _this)
-    {
-        return;
-    }
-
-    KIRQL oldIrql;
-    KeAcquireSpinLock(&_this->m_PositionSpinLock, &oldIrql);
-
-    qpc = KeQueryPerformanceCounter(&qpcFrequency);
-
-    // Convert ticks to 100ns units.
-    LONGLONG  hnsCurrentTime = KSCONVERT_PERFORMANCE_TIME(_this->m_ullPerformanceCounterFrequency.QuadPart, qpc);
-
-    // Calculate the time elapsed since the last we ran DPC that matched Notification interval. Note that the division by 10000 
-    // to convert to milliseconds may cause us to lose some of the time, so we will carry the remainder forward.
-
-    ULONG TimeElapsedInMS = (ULONG)(hnsCurrentTime - _this->m_ullLastDPCTimeStamp + _this->m_hnsDPCTimeCarryForward)/10000;
-
-    if (TimeElapsedInMS >= _this->m_ulNotificationIntervalMs)
-    {
-        // Carry forward the time greater than notification interval to adjust time to signal next buffer completion event accordingly.
-        _this->m_hnsDPCTimeCarryForward = hnsCurrentTime - _this->m_ullLastDPCTimeStamp + _this->m_hnsDPCTimeCarryForward - (_this->m_ulNotificationIntervalMs * 10000);
-        // Save the last time DPC ran at notification interval
-        _this->m_ullLastDPCTimeStamp = hnsCurrentTime;
-        bufferCompleted = TRUE;
-    }
-
-    if (!bufferCompleted && !_this->m_bEoSReceived)
-    {
-        goto End;
-    }
-
-    _this->UpdatePosition(qpc);
-
-    if (!_this->m_bEoSReceived)
-    {
-        _this->m_llPacketCounter++;
-    }
-
-#if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
-    if (_this->m_SidebandStarted)
-    {
-        if (!NT_SUCCESS(_this->GetSidebandStreamNtStatus()))
-        {
-            goto End;
-        }
-    }
-#endif  //defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
-
-    _this->m_pMiniport->DpcRoutine(qpc.QuadPart, qpcFrequency.QuadPart);
-
-    if (_this->m_KsState != KSSTATE_RUN)
-    {
-        goto End;
-    }
-    
-    PADAPTERCOMMON  pAdapterComm = _this->m_pMiniport->GetAdapterCommObj();
-
-    // Simple buffer underrun detection.
-    if (!_this->IsCurrentWaveRTWritePositionUpdated() && !_this->m_bEoSReceived)
-    {
-        //Event type: eMINIPORT_GLITCH_REPORT
-        //Parameter 1: Current linear buffer position 
-        //Parameter 2: Previous WaveRtBufferWritePosition that the driver received 
-        //Parameter 3: Major glitch code: 1:WaveRT buffer is underrun
-        //Parameter 4: Minor code for the glitch cause
-        pAdapterComm->WriteEtwEvent(eMINIPORT_GLITCH_REPORT, 
-                                    _this->m_ullLinearPosition,
-                                    _this->GetCurrentWaveRTWritePosition(),
-                                    1,      // WaveRT buffer is underrun
-                                    0); 
-    }
-
-    // Send buffer completion event if either of the following is true
-    // 1. Driver consumed a complete buffer for this stream
-    // 2. Driver consumed a partial buffer containing EoS for this stream
-
-    if (!IsListEmpty(&_this->m_NotificationList) && 
-        (bufferCompleted || _this->m_bLastBufferRendered))
-    {
-        PLIST_ENTRY leCurrent = _this->m_NotificationList.Flink;
-        while (leCurrent != &_this->m_NotificationList)
-        {
-            NotificationListEntry* nleCurrent = CONTAINING_RECORD( leCurrent, NotificationListEntry, ListEntry);
-            //Event type: eMINIPORT_BUFFER_COMPLETE
-            //Parameter 1: Current linear buffer position
-            //Parameter 2: Previous WaveRtBufferWritePosition that the driver received
-            //Parameter 3: Data length completed
-            //Parameter 4: 0
-            pAdapterComm->WriteEtwEvent(eMINIPORT_BUFFER_COMPLETE,
-                                        _this->m_ullLinearPosition,
-                                        _this->GetCurrentWaveRTWritePosition(),
-                                        _this->m_ulDmaBufferSize/_this->m_ulNotificationsPerBuffer, // replace with the correct "Data length completed"
-                                        0); // always zero
-            KeSetEvent(nleCurrent->NotificationEvent, 0, 0);
-
-            leCurrent = leCurrent->Flink;
-        }
-    }
-
-    if (_this->m_bLastBufferRendered)
-    {
-        ExCancelTimer(_this->m_pNotificationTimer, NULL);
-    }
-
-End:
-    KeReleaseSpinLock(&_this->m_PositionSpinLock, oldIrql);
-    return;
-}
-//=============================================================================
-
-

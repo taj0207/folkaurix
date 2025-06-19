@@ -78,7 +78,7 @@ STDMETHODIMP_(NTSTATUS) CMiniportWaveRT::GetAudioEngineDescriptor(_In_ ULONG _ul
     {
         _pAudioEngineDescriptor->nHostPinId = GetSystemPinId();
         _pAudioEngineDescriptor->nOffloadPinId = GetOffloadPinId();
-        _pAudioEngineDescriptor->nLoopbackPinId = GetLoopbackPinId();
+        _pAudioEngineDescriptor->nLoopbackPinId = GetSystemPinId();
         ntStatus = STATUS_SUCCESS;
     }
     else
@@ -1188,46 +1188,12 @@ Return Value:
     PAGED_CODE ();
     DPF_ENTER();
     
-    NTSTATUS    ntStatus    = STATUS_SUCCESS;
+    UNREFERENCED_PARAMETER(ulProtectionOption);
 
-    if (ulProtectionOption == m_LoopbackProtection)
-    {
-        goto Done;
-    }
+    m_LoopbackProtection = ulProtectionOption;
 
-    for (ULONG i = 0; i < MAX_OUTPUT_LOOPBACK_STREAMS; i++)
-    {
-        if (m_LoopbackStreams[i])
-        {
-            ntStatus = m_LoopbackStreams[i]->SetLoopbackProtection(ulProtectionOption);
-            if (!NT_SUCCESS(ntStatus))
-            {
-                break;
-            }
-        }
-    }
-
-    if (NT_SUCCESS(ntStatus))
-    {
-        m_LoopbackProtection = ulProtectionOption;
-    }
-    else 
-    {
-        //
-        // Something went wrong, restore old protection setting.
-        //
-        for (ULONG i = 0; i < MAX_OUTPUT_LOOPBACK_STREAMS; i++)
-        {
-            if (m_LoopbackStreams[i])
-            {
-                (void)m_LoopbackStreams[i]->SetLoopbackProtection(m_LoopbackProtection);
-            }
-        }
-    }
-
-Done:
     DPF_EXIT();
-    return ntStatus;
+    return STATUS_SUCCESS;
 }
 
 

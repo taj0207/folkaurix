@@ -992,11 +992,8 @@ NTSTATUS CMiniportWaveRTStream::SetLoopbackProtection(_In_ CONSTRICTOR_OPTION pr
     PAGED_CODE ();
     DPF_ENTER();
 
-    //
-    // Miniport driver mutes/unmutes the loopback here.
-    // 
-    m_ToneGenerator.SetMute(protectionOption == CONSTRICTOR_OPTION_MUTE);
-    
+    UNREFERENCED_PARAMETER(protectionOption);
+
     DPF_EXIT();
     return STATUS_SUCCESS;
 }

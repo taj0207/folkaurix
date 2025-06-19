@@ -1,9 +1,7 @@
 # folkaurixsvc
 
 This is a simple user‑mode application that reads audio captured by the
-driver‑provided "FolkAurix Loopback" device. Unlike the operating system
-loopback facility, this capture endpoint is implemented entirely in the
-FolkAurix driver. The service records the device through the standard
+driver‑provided "FolkAurix Mic" device. The service records the device through the standard
 WASAPI `IAudioClient` interface. Captured PCM blocks are streamed to
 Google Cloud for speech recognition and translation. The translated
 speech is played back through the
