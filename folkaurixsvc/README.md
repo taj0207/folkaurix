@@ -1,10 +1,12 @@
 # folkaurixsvc
 
 This is a simple user‑mode application that reads audio captured by the
-SysVAD loopback device.  It now uses the standard WASAPI audio client
-interface to record from the "FolkAurix Loopback" capture endpoint.
-Captured PCM blocks are streamed to Google Cloud for speech recognition
-and translation.  The translated speech is played back through the
+driver‑provided "FolkAurix Loopback" device. Unlike the operating system
+loopback facility, this capture endpoint is implemented entirely in the
+FolkAurix driver. The service records the device through the standard
+WASAPI `IAudioClient` interface. Captured PCM blocks are streamed to
+Google Cloud for speech recognition and translation. The translated
+speech is played back through the
 system default speaker using the Azure Speech SDK. Optionally the raw
 PCM data can also be written to a file.
 
