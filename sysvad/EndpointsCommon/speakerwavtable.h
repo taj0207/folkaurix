@@ -52,6 +52,7 @@ Abstract:
 //
 #define SPEAKER_MAX_INPUT_SYSTEM_STREAMS            6
 #define SPEAKER_MAX_INPUT_OFFLOAD_STREAMS           MAX_INPUT_OFFLOAD_STREAMS
+#define SPEAKER_MAX_OUTPUT_LOOPBACK_STREAMS         MAX_OUTPUT_LOOPBACK_STREAMS
 
 //=============================================================================
 static 
@@ -209,6 +210,13 @@ PIN_DEVICE_FORMATS_AND_MODES SpeakerPinDeviceFormatsAndModes[] =
         SIZEOF_ARRAY(SpeakerOffloadPinSupportedDeviceFormats),
         SpeakerOffloadPinSupportedDeviceModes,
         SIZEOF_ARRAY(SpeakerOffloadPinSupportedDeviceModes),
+    },
+    {
+        RenderLoopbackPin,
+        SpeakerHostPinSupportedDeviceFormats,  // Must support all the formats supported by host pin
+        SIZEOF_ARRAY(SpeakerHostPinSupportedDeviceFormats),
+        NULL,   // loopback doesn't support modes.
+        0
     },
     {
         BridgePin,
@@ -432,6 +440,26 @@ PCPIN_DESCRIPTOR SpeakerWaveMiniportPins[] =
             0
         }
     },
+    // Wave Out Streaming Pin (Renderer) KSPIN_WAVE_RENDER_SINK_LOOPBACK
+    {
+        SPEAKER_MAX_OUTPUT_LOOPBACK_STREAMS,
+        SPEAKER_MAX_OUTPUT_LOOPBACK_STREAMS, 
+        0,
+        NULL,
+        {
+            0,
+            NULL,
+            0,
+            NULL,
+            SIZEOF_ARRAY(SpeakerPinDataRangePointersLoopbackStream),
+            SpeakerPinDataRangePointersLoopbackStream,
+            KSPIN_DATAFLOW_OUT,              
+            KSPIN_COMMUNICATION_SINK,
+            &KSNODETYPE_AUDIO_LOOPBACK,
+            NULL,
+            0
+        }
+    },
     // Wave Out Bridge Pin (Renderer) KSPIN_WAVE_RENDER_SOURCE
     {
         0,
@@ -480,6 +508,7 @@ PCCONNECTION_DESCRIPTOR SpeakerWaveMiniportConnections[] =
 {
     { PCFILTER_NODE,            KSPIN_WAVE_RENDER_SINK_SYSTEM,     KSNODE_WAVE_AUDIO_ENGINE,   1 },
     { PCFILTER_NODE,            KSPIN_WAVE_RENDER_SINK_OFFLOAD,    KSNODE_WAVE_AUDIO_ENGINE,   2 },
+    { KSNODE_WAVE_AUDIO_ENGINE, 3,                                 PCFILTER_NODE,              KSPIN_WAVE_RENDER_SINK_LOOPBACK },
     { KSNODE_WAVE_AUDIO_ENGINE, 0,                                 PCFILTER_NODE,              KSPIN_WAVE_RENDER_SOURCE },
 };
 
