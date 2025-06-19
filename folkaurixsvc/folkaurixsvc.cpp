@@ -49,14 +49,9 @@
 #include <iostream>
 #include <limits>
 #include <cstdlib>
+#include <propvarutil.h>
 
 
-#ifndef IOCTL_SYSVAD_GET_LOOPBACK_DATA
-#define IOCTL_SYSVAD_GET_LOOPBACK_DATA CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_OUT_DIRECT, FILE_READ_ACCESS)
-#endif
-#ifndef IOCTL_SYSVAD_SET_LOOPBACK_ENABLED
-#define IOCTL_SYSVAD_SET_LOOPBACK_ENABLED CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_WRITE_ACCESS)
-#endif
 
 #ifdef _DEBUG
 #define DPF_ENTER() wprintf(L"[ENTER] %S\n", __FUNCTION__)
@@ -101,6 +96,88 @@ void ClearAllQueues()
         std::lock_guard<std::mutex> lk(g_translationMutex);
         while (!g_translationQueue.empty()) g_translationQueue.pop();
     }
+}
+
+static HRESULT FindLoopbackDevice(IMMDevice** ppDevice)
+{
+    if (!ppDevice) return E_INVALIDARG;
+    *ppDevice = nullptr;
+
+    IMMDeviceEnumerator* enumerator = nullptr;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
+                                  CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
+    if (FAILED(hr)) return hr;
+
+    IMMDeviceCollection* collection = nullptr;
+    hr = enumerator->EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE, &collection);
+    if (SUCCEEDED(hr))
+    {
+        UINT count = 0;
+        collection->GetCount(&count);
+        for (UINT i = 0; i < count; ++i)
+        {
+            IMMDevice* device = nullptr;
+            if (SUCCEEDED(collection->Item(i, &device)))
+            {
+                IPropertyStore* props = nullptr;
+                if (SUCCEEDED(device->OpenPropertyStore(STGM_READ, &props)))
+                {
+                    PROPVARIANT var;
+                    PropVariantInit(&var);
+                    if (SUCCEEDED(props->GetValue(PKEY_Device_FriendlyName, &var)))
+                    {
+                        if (var.vt == VT_LPWSTR && wcsstr(var.pwszVal, L"folkaurix"))
+                        {
+                            *ppDevice = device;
+                            device = nullptr;
+                            PropVariantClear(&var);
+                            props->Release();
+                            break;
+                        }
+                    }
+                    PropVariantClear(&var);
+                    props->Release();
+                }
+                if (device) device->Release();
+            }
+        }
+    }
+    if (collection) collection->Release();
+    if (enumerator) enumerator->Release();
+    return *ppDevice ? S_OK : E_FAIL;
+}
+
+static HRESULT CreateCaptureClient(IAudioClient** ppClient, IAudioCaptureClient** ppCapture, WAVEFORMATEX** ppFormat)
+{
+    if (!ppClient || !ppCapture || !ppFormat) return E_INVALIDARG;
+
+    *ppClient = nullptr;
+    *ppCapture = nullptr;
+    *ppFormat = nullptr;
+
+    IMMDevice* device = nullptr;
+    HRESULT hr = FindLoopbackDevice(&device);
+    if (FAILED(hr)) return hr;
+
+    hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)ppClient);
+    if (FAILED(hr)) { device->Release(); return hr; }
+
+    hr = (*ppClient)->GetMixFormat(ppFormat);
+    if (FAILED(hr)) { device->Release(); (*ppClient)->Release(); return hr; }
+
+    hr = (*ppClient)->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 10000000, 0, *ppFormat, nullptr);
+    if (FAILED(hr)) { device->Release(); (*ppClient)->Release(); CoTaskMemFree(*ppFormat); *ppFormat = nullptr; return hr; }
+
+    hr = (*ppClient)->GetService(__uuidof(IAudioCaptureClient), (void**)ppCapture);
+    device->Release();
+    if (FAILED(hr))
+    {
+        (*ppClient)->Release();
+        CoTaskMemFree(*ppFormat);
+        *ppFormat = nullptr;
+        return hr;
+    }
+    return S_OK;
 }
 
 struct ProgramOptions
@@ -768,12 +845,12 @@ bool StartAzurePipeline(const std::string& targetLang)
 #endif
 
 
-// Captures audio from SysVAD loopback using IOCTL_SYSVAD_GET_LOOPBACK_DATA.
-static void CaptureThread(HANDLE hDevice, bool useFile,
-                          WaveFileWriter* pWriter)
+// Captures audio from the SysVAD loopback device using WASAPI.
+static void CaptureThread(IAudioClient* client, IAudioCaptureClient* capture,
+                          WAVEFORMATEX* format, bool useFile, WaveFileWriter* pWriter)
 {
-    BYTE buffer[4096];
-    DWORD bytesReturned = 0;
+    client->Start();
+    UINT32 packet = 0;
     while (!g_stop)
     {
         if (GetAsyncKeyState(VK_F9) & 0x8000)
@@ -786,35 +863,32 @@ static void CaptureThread(HANDLE hDevice, bool useFile,
             break;
         }
 
-        if (!DeviceIoControl(hDevice,
-                             IOCTL_SYSVAD_GET_LOOPBACK_DATA,
-                             nullptr,
-                             0,
-                             buffer,
-                             static_cast<DWORD>(sizeof(buffer)),
-                             &bytesReturned,
-                             nullptr))
+        if (SUCCEEDED(capture->GetNextPacketSize(&packet)) && packet > 0)
         {
-            bytesReturned = 0;
-        }
-
-        if (bytesReturned > 0)
-        {
-            if (useFile && pWriter)
+            BYTE* data = nullptr;
+            UINT32 frames = 0;
+            DWORD flags = 0;
+            if (SUCCEEDED(capture->GetBuffer(&data, &frames, &flags, nullptr, nullptr)))
             {
-                WriteWaveData(*pWriter, buffer, bytesReturned);
-            }
+                UINT32 bytes = frames * format->nBlockAlign;
+                if (useFile && pWriter)
+                {
+                    WriteWaveData(*pWriter, data, bytes);
+                }
 
-            std::vector<char> data(buffer, buffer + bytesReturned);
-            {
-                std::lock_guard<std::mutex> lk(g_captureMutex);
-                g_captureQueue.push(std::move(data));
+                std::vector<char> out(data, data + bytes);
+                {
+                    std::lock_guard<std::mutex> lk(g_captureMutex);
+                    g_captureQueue.push(std::move(out));
+                }
+                g_captureCv.notify_one();
+                capture->ReleaseBuffer(frames);
             }
-            g_captureCv.notify_one();
         }
 
         Sleep(10);
     }
+    client->Stop();
 }
 
 void SpeechContinuousRecognitionWithFile()
@@ -986,49 +1060,28 @@ int wmain(int argc, wchar_t** argv)
     }
 #endif
 
-    WAVEFORMATEX captureFormat = {};
-    captureFormat.wFormatTag = WAVE_FORMAT_PCM;
-    captureFormat.nChannels = 1;
-    captureFormat.nSamplesPerSec = 16000;
-    captureFormat.wBitsPerSample = 16;
-    captureFormat.nBlockAlign =
-        captureFormat.nChannels * captureFormat.wBitsPerSample / 8;
-    captureFormat.nAvgBytesPerSec =
-        captureFormat.nSamplesPerSec * captureFormat.nBlockAlign;
-    captureFormat.cbSize = 0;
-
-    HANDLE hDevice = CreateFileW(L"\\\\.\\SysVADLoopback", GENERIC_READ, 0,
-                                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (hDevice == INVALID_HANDLE_VALUE)
+    IAudioClient* audioClient = nullptr;
+    IAudioCaptureClient* captureClient = nullptr;
+    WAVEFORMATEX* captureFormat = nullptr;
+    hr = CreateCaptureClient(&audioClient, &captureClient, &captureFormat);
+    if (FAILED(hr))
     {
-        DPF(L"Failed to open device: %lu\n", GetLastError());
+        DPF(L"Failed to open capture device: 0x%08lx\n", hr);
         CoUninitialize();
         DPF_EXIT();
         return 1;
-    }
-
-    // Enable loopback capture in the driver
-    {
-        BOOLEAN enable = TRUE;
-        DWORD returned = 0;
-        DeviceIoControl(hDevice,
-                        IOCTL_SYSVAD_SET_LOOPBACK_ENABLED,
-                        &enable,
-                        sizeof(enable),
-                        nullptr,
-                        0,
-                        &returned,
-                        nullptr);
     }
 
     WaveFileWriter wavWriter;
     bool useFile = false;
     if (opts.outputFile)
     {
-        if (!OpenWaveFile(wavWriter, opts.outputFile, &captureFormat))
+        if (!OpenWaveFile(wavWriter, opts.outputFile, captureFormat))
         {
             DPF(L"Failed to open output file: %lu\n", GetLastError());
-            CloseHandle(hDevice);
+            audioClient->Release();
+            captureClient->Release();
+            CoTaskMemFree(captureFormat);
             CoUninitialize();
             DPF_EXIT();
             return 1;
@@ -1045,28 +1098,16 @@ int wmain(int argc, wchar_t** argv)
     std::thread pipeline(StartAzurePipeline, opts.targetLang);
 #endif
 
-    std::thread capture(CaptureThread, hDevice, useFile, useFile ? &wavWriter : nullptr);
+    std::thread capture(CaptureThread, audioClient, captureClient, captureFormat, useFile, useFile ? &wavWriter : nullptr);
 
     capture.join();
 
     if (useFile)
         FinalizeWaveFile(wavWriter);
 
-    // Disable loopback capture before closing the handle
-    {
-        BOOLEAN enable = FALSE;
-        DWORD returned = 0;
-        DeviceIoControl(hDevice,
-                        IOCTL_SYSVAD_SET_LOOPBACK_ENABLED,
-                        &enable,
-                        sizeof(enable),
-                        nullptr,
-                        0,
-                        &returned,
-                        nullptr);
-    }
-
-    CloseHandle(hDevice);
+    audioClient->Release();
+    captureClient->Release();
+    CoTaskMemFree(captureFormat);
 
     g_stop = true;
     g_captureCv.notify_all();
