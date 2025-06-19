@@ -51,7 +51,7 @@ ENDPOINT_MINIPAIR SpeakerMiniports =
     CreateMiniportTopologySYSVAD,
     &SpeakerTopoMiniportFilterDescriptor,
     0, NULL,
-    L"WaveSpeaker",
+    L"folkaurix_speaker",
     NULL,
     CreateMiniportWaveRTSYSVAD,
     &SpeakerWaveMiniportFilterDescriptor,
@@ -87,7 +87,7 @@ ENDPOINT_MINIPAIR MicInMiniports =
     CreateMiniportTopologySYSVAD,
     &MicInTopoMiniportFilterDescriptor,
     0, NULL,
-    L"WaveMicIn",
+    L"folkaurix_mic",
     NULL,
     CreateMiniportWaveRTSYSVAD,
     &MicInWaveMiniportFilterDescriptor,
@@ -100,8 +100,6 @@ ENDPOINT_MINIPAIR MicInMiniports =
     ENDPOINT_NO_FLAGS,
     NULL, 0, NULL,
 };
-
-// Loopback capture endpoint
 
 //------------------------------------------------------------------------------
 // Endpoint tables

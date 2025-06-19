@@ -186,6 +186,7 @@ typedef enum
     BridgePin,
     SystemRenderPin,
     OffloadRenderPin,
+    RenderLoopbackPin,
     SystemCapturePin,
     KeywordCapturePin,
     TelephonyBidiPin,
