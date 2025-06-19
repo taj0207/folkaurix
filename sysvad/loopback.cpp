@@ -38,36 +38,52 @@ static __forceinline ULONG _available()
 
 void LoopbackBuffer_Write(_In_reads_bytes_(Length) PBYTE Data, _In_ ULONG Length)
 {
-	DbgPrint(("[%s]", __FUNCTION__));
+        DbgPrint(("[%s]", __FUNCTION__));
     if (!g_LoopbackBuffer.Buffer) return;
     KIRQL oldIrql;
     KeAcquireSpinLock(&g_LoopbackBuffer.Lock, &oldIrql);
-    for (ULONG i = 0; i < Length; ++i)
+    ULONG capacity = g_LoopbackBuffer.Size - 1;
+    if (Length >= g_LoopbackBuffer.Size)
     {
-        g_LoopbackBuffer.Buffer[g_LoopbackBuffer.WritePos] = Data[i];
-        g_LoopbackBuffer.WritePos = (g_LoopbackBuffer.WritePos + 1) % g_LoopbackBuffer.Size;
-        if (g_LoopbackBuffer.WritePos == g_LoopbackBuffer.ReadPos)
-        {
-            g_LoopbackBuffer.ReadPos = (g_LoopbackBuffer.ReadPos + 1) % g_LoopbackBuffer.Size;
-        }
+        Data += Length - capacity;
+        Length = capacity;
     }
+
+    ULONG available = _available();
+    ULONG freeSpace = (capacity > available) ? (capacity - available) : 0;
+
+    if (Length > freeSpace)
+    {
+        ULONG overrun = Length - freeSpace;
+        g_LoopbackBuffer.ReadPos = (g_LoopbackBuffer.ReadPos + overrun) % g_LoopbackBuffer.Size;
+    }
+
+    ULONG first = min(Length, g_LoopbackBuffer.Size - g_LoopbackBuffer.WritePos);
+    RtlCopyMemory(g_LoopbackBuffer.Buffer + g_LoopbackBuffer.WritePos, Data, first);
+    if (Length > first)
+    {
+        RtlCopyMemory(g_LoopbackBuffer.Buffer, Data + first, Length - first);
+    }
+    g_LoopbackBuffer.WritePos = (g_LoopbackBuffer.WritePos + Length) % g_LoopbackBuffer.Size;
     KeReleaseSpinLock(&g_LoopbackBuffer.Lock, oldIrql);
     KeSetEvent(&g_LoopbackBuffer.DataEvent, IO_NO_INCREMENT, FALSE);
 }
 
 ULONG LoopbackBuffer_Read(_Out_writes_bytes_(Length) PBYTE Data, _In_ ULONG Length)
 {
-	DbgPrint(("[%s]", __FUNCTION__));
+        DbgPrint(("[%s]", __FUNCTION__));
     if (!g_LoopbackBuffer.Buffer) return 0;
     KIRQL oldIrql;
     KeAcquireSpinLock(&g_LoopbackBuffer.Lock, &oldIrql);
     ULONG available = _available();
     if (Length > available) Length = available;
-    for (ULONG i = 0; i < Length; ++i)
+    ULONG first = min(Length, g_LoopbackBuffer.Size - g_LoopbackBuffer.ReadPos);
+    RtlCopyMemory(Data, g_LoopbackBuffer.Buffer + g_LoopbackBuffer.ReadPos, first);
+    if (Length > first)
     {
-        Data[i] = g_LoopbackBuffer.Buffer[g_LoopbackBuffer.ReadPos];
-        g_LoopbackBuffer.ReadPos = (g_LoopbackBuffer.ReadPos + 1) % g_LoopbackBuffer.Size;
+        RtlCopyMemory(Data + first, g_LoopbackBuffer.Buffer, Length - first);
     }
+    g_LoopbackBuffer.ReadPos = (g_LoopbackBuffer.ReadPos + Length) % g_LoopbackBuffer.Size;
     if (_available() == 0)
     {
         KeClearEvent(&g_LoopbackBuffer.DataEvent);
