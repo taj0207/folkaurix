@@ -1,17 +1,12 @@
 # folkaurixsvc
 
 This is a simple user‑mode application that reads audio captured by the
-SysVAD loopback device.  The tool opens `\\.\SysVADLoopback` and issues
-the `IOCTL_SYSVAD_GET_LOOPBACK_DATA` control code in a loop.  Captured
-PCM blocks are streamed to Google Cloud for speech recognition,
-translation and text‑to‑speech synthesis.  The translated speech is
-played back through the system default speaker using the Azure Speech
-SDK. Optionally the raw PCM data can also be written to a file.
-
-The driver also supports the `IOCTL_SYSVAD_SET_LOOPBACK_ENABLED`
-control code which toggles whether captured audio is written to the
-loopback buffer. `folkaurixsvc` sends this IOCTL with `TRUE` when it
-starts recording and with `FALSE` just before exiting.
+SysVAD loopback device.  It now uses the standard WASAPI audio client
+interface to record from the "FolkAurix Loopback" capture endpoint.
+Captured PCM blocks are streamed to Google Cloud for speech recognition
+and translation.  The translated speech is played back through the
+system default speaker using the Azure Speech SDK. Optionally the raw
+PCM data can also be written to a file.
 
 ## Building
 The project is a standard Visual Studio console application.  Add

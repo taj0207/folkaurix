@@ -150,6 +150,7 @@ typedef enum
     eSpeakerHpDevice,
     eHdmiRenderDevice,
     eMicInDevice,
+    eLoopbackCaptureDevice,
     eMicArrayDevice1,
     eMicArrayDevice2,
     eMicArrayDevice3,

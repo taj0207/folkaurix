@@ -5,7 +5,7 @@ FolkAurix brings together a virtual audio driver based on Microsoft's SysVAD sam
 ## Directory layout
 
 - **sysvad/** – Modified [SysVAD Virtual Audio Device Driver](sysvad/README.md) sample providing loopback and other virtual endpoints.
-- **folkaurixsvc/** – [folkaurixsvc](folkaurixsvc/README.md) console application that reads audio from the SysVAD loopback device and sends it to the cloud.
+- **folkaurixsvc/** – [folkaurixsvc](folkaurixsvc/README.md) console application that records from the SysVAD loopback capture device using WASAPI and sends the audio to the cloud.
 - **Test/** – [Example scripts](Test/README.md) for playing audio files, running real-time translation pipelines and testing Google Speech APIs.
 
 ## Quick start
