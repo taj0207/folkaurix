@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2B20064B-06B9-4A8E-9E8B-28E0EFEBDAB6}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>folkaurixsvc</RootNamespace>
+    <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(ProjectDir)nuget\Microsoft.CognitiveServices.Speech.1.44.0\build\native\include\cxx_api\;$(ProjectDir)nuget\Microsoft.CognitiveServices.Speech.1.44.0\build\native\include\c_api\</AdditionalIncludeDirectories>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <LanguageStandard>stdcpp20</LanguageStandard>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <LanguageStandard>stdcpp20</LanguageStandard>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+        <LanguageStandard>stdcpp20</LanguageStandard>
+        <AdditionalIncludeDirectories>$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+        <Zc__cplusplus>true</Zc__cplusplus>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(SpeechNativeLibDir)\Microsoft.CognitiveServices.Speech.core.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+        <LanguageStandard>stdcpp20</LanguageStandard>
+        <AdditionalIncludeDirectories>$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+        <Zc__cplusplus>true</Zc__cplusplus>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(SpeechNativeLibDir)\Microsoft.CognitiveServices.Speech.core.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+    <Import Project="..\packages\Microsoft.CognitiveServices.Speech.1.44.0\build\native\Microsoft.CognitiveServices.Speech.targets" Condition="Exists('..\packages\Microsoft.CognitiveServices.Speech.1.44.0\build\native\Microsoft.CognitiveServices.Speech.targets')" />
+    <Import Project="..\packages\Microsoft.CognitiveServices.Speech.Extension.MAS.1.44.0\build\native\Microsoft.CognitiveServices.Speech.Extension.MAS.targets" Condition="Exists('..\packages\Microsoft.CognitiveServices.Speech.Extension.MAS.1.44.0\build\native\Microsoft.CognitiveServices.Speech.Extension.MAS.targets')" />
+    <Import Project="..\packages\nlohmann.json.3.10.4\build\native\nlohmann.json.targets" Condition="Exists('..\packages\nlohmann.json.3.10.4\build\native\nlohmann.json.targets')" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemGroup>
+    <ClCompile Include="folkaurixsvc.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\Microsoft.CognitiveServices.Speech.1.44.0\build\native\Microsoft.CognitiveServices.Speech.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CognitiveServices.Speech.1.44.0\build\native\Microsoft.CognitiveServices.Speech.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.CognitiveServices.Speech.Extension.MAS.1.44.0\build\native\Microsoft.CognitiveServices.Speech.Extension.MAS.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CognitiveServices.Speech.Extension.MAS.1.44.0\build\native\Microsoft.CognitiveServices.Speech.Extension.MAS.targets'))" />
+    <Error Condition="!Exists('..\packages\nlohmann.json.3.10.4\build\native\nlohmann.json.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nlohmann.json.3.10.4\build\native\nlohmann.json.targets'))" />
+  </Target>
+</Project>
