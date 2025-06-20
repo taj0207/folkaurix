@@ -165,6 +165,7 @@ Return Value:
     m_ulDmaBufferSize = 0;
     m_pDmaBuffer = NULL;
     m_ulNotificationsPerBuffer = 0;
+    m_bDmaBufferAllocated = FALSE;
     m_KsState = KSSTATE_STOP;
     m_pTimer = NULL;
     m_pDpc = NULL;
@@ -431,7 +432,36 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
         }
     }
 
-    if (m_bCapture)
+    BOOLEAN allocate = (m_pMiniport->GetRenderBuffer() == NULL);
+
+    if (allocate)
+    {
+        PHYSICAL_ADDRESS highAddress;
+        highAddress.HighPart = 0;
+        highAddress.LowPart = MAXULONG;
+
+        PMDL pBufferMdl = m_pPortStream->AllocatePagesForMdl(highAddress, RequestedSize_);
+
+        if (NULL == pBufferMdl)
+        {
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
+        m_ulNotificationsPerBuffer = NotificationCount_;
+        m_ulDmaBufferSize = RequestedSize_;
+        ulBufferDurationMs = (RequestedSize_ * 1000) / m_ulDmaMovementRate;
+        m_ulNotificationIntervalMs = ulBufferDurationMs / NotificationCount_;
+
+        *AudioBufferMdl_ = pBufferMdl;
+        *ActualSize_ = RequestedSize_;
+        *OffsetFromFirstPage_ = 0;
+        *CacheType_ = MmCached;
+
+        m_pMiniport->SetRenderBuffer(m_pDmaBuffer, pBufferMdl, m_ulDmaBufferSize);
+        m_bDmaBufferAllocated = TRUE;
+    }
+    else
     {
         m_pDmaBuffer = m_pMiniport->GetRenderBuffer();
         m_ulDmaBufferSize = m_pMiniport->GetRenderBufferSize();
@@ -444,32 +474,8 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
         *OffsetFromFirstPage_ = 0;
         *CacheType_ = MmCached;
 
-        return STATUS_SUCCESS;
+        m_bDmaBufferAllocated = FALSE;
     }
-
-    PHYSICAL_ADDRESS highAddress;
-    highAddress.HighPart = 0;
-    highAddress.LowPart = MAXULONG;
-
-    PMDL pBufferMdl = m_pPortStream->AllocatePagesForMdl (highAddress, RequestedSize_);
-
-    if (NULL == pBufferMdl)
-    {
-        return STATUS_UNSUCCESSFUL;
-    }
-
-    m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
-    m_ulNotificationsPerBuffer = NotificationCount_;
-    m_ulDmaBufferSize = RequestedSize_;
-    ulBufferDurationMs = (RequestedSize_ * 1000) / m_ulDmaMovementRate;
-    m_ulNotificationIntervalMs = ulBufferDurationMs / NotificationCount_;
-
-    *AudioBufferMdl_ = pBufferMdl;
-    *ActualSize_ = RequestedSize_;
-    *OffsetFromFirstPage_ = 0;
-    *CacheType_ = MmCached;
-
-    m_pMiniport->SetRenderBuffer(m_pDmaBuffer, pBufferMdl, m_ulDmaBufferSize);
 
     return STATUS_SUCCESS;
 }
@@ -486,18 +492,15 @@ VOID CMiniportWaveRTStream::FreeBufferWithNotification
 
     PAGED_CODE();
 
-    if (Mdl_ != NULL)
+    if (Mdl_ != NULL && m_pDmaBuffer != NULL && m_bDmaBufferAllocated)
     {
-        if (!m_bCapture && m_pDmaBuffer != NULL)
+        if (m_pMiniport->GetRenderBuffer() == m_pDmaBuffer)
         {
-            if (m_pMiniport->GetRenderBuffer() == m_pDmaBuffer)
-            {
-                m_pMiniport->ClearRenderBuffer();
-            }
-            m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
-            m_pPortStream->FreePagesFromMdl(Mdl_);
-            m_pDmaBuffer = NULL;
+            m_pMiniport->ClearRenderBuffer();
         }
+        m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
+        m_pPortStream->FreePagesFromMdl(Mdl_);
+        m_pDmaBuffer = NULL;
     }
 
     m_ulDmaBufferSize = 0;
@@ -638,18 +641,15 @@ _In_        ULONG       Size_
 
     PAGED_CODE();
 
-    if (Mdl_ != NULL)
+    if (Mdl_ != NULL && m_pDmaBuffer != NULL && m_bDmaBufferAllocated)
     {
-        if (!m_bCapture && m_pDmaBuffer != NULL)
+        if (m_pMiniport->GetRenderBuffer() == m_pDmaBuffer)
         {
-            if (m_pMiniport->GetRenderBuffer() == m_pDmaBuffer)
-            {
-                m_pMiniport->ClearRenderBuffer();
-            }
-            m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
-            m_pPortStream->FreePagesFromMdl(Mdl_);
-            m_pDmaBuffer = NULL;
+            m_pMiniport->ClearRenderBuffer();
         }
+        m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
+        m_pPortStream->FreePagesFromMdl(Mdl_);
+        m_pDmaBuffer = NULL;
     }
 
     m_ulDmaBufferSize = 0;
@@ -676,7 +676,35 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
 
     RequestedSize_ -= RequestedSize_ % (m_pWfExt->Format.nBlockAlign);
 
-    if (m_bCapture)
+    BOOLEAN allocate = (m_pMiniport->GetRenderBuffer() == NULL);
+
+    if (allocate)
+    {
+        PHYSICAL_ADDRESS highAddress;
+        highAddress.HighPart = 0;
+        highAddress.LowPart = MAXULONG;
+
+        PMDL pBufferMdl = m_pPortStream->AllocatePagesForMdl(highAddress, RequestedSize_);
+
+        if (NULL == pBufferMdl)
+        {
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
+
+        m_ulDmaBufferSize = RequestedSize_;
+        m_ulNotificationsPerBuffer = 0;
+
+        *AudioBufferMdl_ = pBufferMdl;
+        *ActualSize_ = RequestedSize_;
+        *OffsetFromFirstPage_ = 0;
+        *CacheType_ = MmCached;
+
+        m_pMiniport->SetRenderBuffer(m_pDmaBuffer, pBufferMdl, m_ulDmaBufferSize);
+        m_bDmaBufferAllocated = TRUE;
+    }
+    else
     {
         m_pDmaBuffer = m_pMiniport->GetRenderBuffer();
         m_ulDmaBufferSize = m_pMiniport->GetRenderBufferSize();
@@ -687,31 +715,8 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
         *OffsetFromFirstPage_ = 0;
         *CacheType_ = MmCached;
 
-        return STATUS_SUCCESS;
+        m_bDmaBufferAllocated = FALSE;
     }
-
-    PHYSICAL_ADDRESS highAddress;
-    highAddress.HighPart = 0;
-    highAddress.LowPart = MAXULONG;
-
-    PMDL pBufferMdl = m_pPortStream->AllocatePagesForMdl(highAddress, RequestedSize_);
-
-    if (NULL == pBufferMdl)
-    {
-        return STATUS_UNSUCCESSFUL;
-    }
-
-    m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
-
-    m_ulDmaBufferSize = RequestedSize_;
-    m_ulNotificationsPerBuffer = 0;
-
-    *AudioBufferMdl_ = pBufferMdl;
-    *ActualSize_ = RequestedSize_;
-    *OffsetFromFirstPage_ = 0;
-    *CacheType_ = MmCached;
-
-    m_pMiniport->SetRenderBuffer(m_pDmaBuffer, pBufferMdl, m_ulDmaBufferSize);
 
     return STATUS_SUCCESS;
 }
