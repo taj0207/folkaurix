@@ -564,6 +564,22 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
         }
     }
 
+    if (m_bCapture)
+    {
+        m_pDmaBuffer = m_pMiniport->GetRenderBuffer();
+        m_ulDmaBufferSize = m_pMiniport->GetRenderBufferSize();
+        m_ulNotificationsPerBuffer = NotificationCount_;
+        ulBufferDurationMs = (m_ulDmaBufferSize * 1000) / m_ulDmaMovementRate;
+        m_ulNotificationIntervalMs = ulBufferDurationMs / NotificationCount_;
+
+        *AudioBufferMdl_ = m_pMiniport->GetRenderMdl();
+        *ActualSize_ = m_ulDmaBufferSize;
+        *OffsetFromFirstPage_ = 0;
+        *CacheType_ = MmCached;
+
+        return STATUS_SUCCESS;
+    }
+
     PHYSICAL_ADDRESS highAddress;
     highAddress.HighPart = 0;
     highAddress.LowPart = MAXULONG;
@@ -575,21 +591,6 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
         return STATUS_UNSUCCESSFUL;
     }
 
-    // From MSDN: 
-    // "Since the Windows audio stack does not support a mechanism to express memory access 
-    //  alignment requirements for buffers, audio drivers must select a caching type for mapped
-    //  memory buffers that does not impose platform-specific alignment requirements. In other 
-    //  words, the caching type used by the audio driver for mapped memory buffers, must not make 
-    //  assumptions about the memory alignment requirements for any specific platform.
-    //
-    //  This method maps the physical memory pages in the MDL into kernel-mode virtual memory. 
-    //  Typically, the miniport driver calls this method if it requires software access to the 
-    //  scatter-gather list for an audio buffer. In this case, the storage for the scatter-gather 
-    //  list must have been allocated by the IPortWaveRTStream::AllocatePagesForMdl or 
-    //  IPortWaveRTStream::AllocateContiguousPagesForMdl method. 
-    //
-    //  A WaveRT miniport driver should not require software access to the audio buffer itself."
-    //   
     m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
     m_ulNotificationsPerBuffer = NotificationCount_;
     m_ulDmaBufferSize = RequestedSize_;
@@ -600,6 +601,8 @@ NTSTATUS CMiniportWaveRTStream::AllocateBufferWithNotification
     *ActualSize_ = RequestedSize_;
     *OffsetFromFirstPage_ = 0;
     *CacheType_ = MmCached;
+
+    m_pMiniport->SetRenderBuffer(m_pDmaBuffer, pBufferMdl, m_ulDmaBufferSize);
 
     return STATUS_SUCCESS;
 }
@@ -618,15 +621,18 @@ VOID CMiniportWaveRTStream::FreeBufferWithNotification
 
     if (Mdl_ != NULL)
     {
-        if (m_pDmaBuffer != NULL)
+        if (!m_bCapture && m_pDmaBuffer != NULL)
         {
+            if (m_pMiniport->GetRenderBuffer() == m_pDmaBuffer)
+            {
+                m_pMiniport->ClearRenderBuffer();
+            }
             m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
+            m_pPortStream->FreePagesFromMdl(Mdl_);
             m_pDmaBuffer = NULL;
         }
-        
-        m_pPortStream->FreePagesFromMdl(Mdl_);
     }
-    
+
     m_ulDmaBufferSize = 0;
     m_ulNotificationsPerBuffer = 0;
 
@@ -767,13 +773,16 @@ _In_        ULONG       Size_
 
     if (Mdl_ != NULL)
     {
-        if (m_pDmaBuffer != NULL)
+        if (!m_bCapture && m_pDmaBuffer != NULL)
         {
+            if (m_pMiniport->GetRenderBuffer() == m_pDmaBuffer)
+            {
+                m_pMiniport->ClearRenderBuffer();
+            }
             m_pPortStream->UnmapAllocatedPages(m_pDmaBuffer, Mdl_);
+            m_pPortStream->FreePagesFromMdl(Mdl_);
             m_pDmaBuffer = NULL;
         }
-
-        m_pPortStream->FreePagesFromMdl(Mdl_);
     }
 
     m_ulDmaBufferSize = 0;
@@ -800,6 +809,20 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
 
     RequestedSize_ -= RequestedSize_ % (m_pWfExt->Format.nBlockAlign);
 
+    if (m_bCapture)
+    {
+        m_pDmaBuffer = m_pMiniport->GetRenderBuffer();
+        m_ulDmaBufferSize = m_pMiniport->GetRenderBufferSize();
+        m_ulNotificationsPerBuffer = 0;
+
+        *AudioBufferMdl_ = m_pMiniport->GetRenderMdl();
+        *ActualSize_ = m_ulDmaBufferSize;
+        *OffsetFromFirstPage_ = 0;
+        *CacheType_ = MmCached;
+
+        return STATUS_SUCCESS;
+    }
+
     PHYSICAL_ADDRESS highAddress;
     highAddress.HighPart = 0;
     highAddress.LowPart = MAXULONG;
@@ -811,21 +834,6 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
         return STATUS_UNSUCCESSFUL;
     }
 
-    // From MSDN: 
-    // "Since the Windows audio stack does not support a mechanism to express memory access 
-    //  alignment requirements for buffers, audio drivers must select a caching type for mapped
-    //  memory buffers that does not impose platform-specific alignment requirements. In other 
-    //  words, the caching type used by the audio driver for mapped memory buffers, must not make 
-    //  assumptions about the memory alignment requirements for any specific platform.
-    //
-    //  This method maps the physical memory pages in the MDL into kernel-mode virtual memory. 
-    //  Typically, the miniport driver calls this method if it requires software access to the 
-    //  scatter-gather list for an audio buffer. In this case, the storage for the scatter-gather 
-    //  list must have been allocated by the IPortWaveRTStream::AllocatePagesForMdl or 
-    //  IPortWaveRTStream::AllocateContiguousPagesForMdl method. 
-    //
-    //  A WaveRT miniport driver should not require software access to the audio buffer itself."
-    //   
     m_pDmaBuffer = (BYTE*)m_pPortStream->MapAllocatedPages(pBufferMdl, MmCached);
 
     m_ulDmaBufferSize = RequestedSize_;
@@ -835,6 +843,8 @@ _Out_   MEMORY_CACHING_TYPE    *CacheType_
     *ActualSize_ = RequestedSize_;
     *OffsetFromFirstPage_ = 0;
     *CacheType_ = MmCached;
+
+    m_pMiniport->SetRenderBuffer(m_pDmaBuffer, pBufferMdl, m_ulDmaBufferSize);
 
     return STATUS_SUCCESS;
 }
@@ -1344,9 +1354,9 @@ NTSTATUS CMiniportWaveRTStream::SetState
             ullPerfCounterTemp = KeQueryPerformanceCounter(&m_ullPerformanceCounterFrequency);
             m_ullLastDPCTimeStamp = m_ullDmaTimeStamp = KSCONVERT_PERFORMANCE_TIME(m_ullPerformanceCounterFrequency.QuadPart, ullPerfCounterTemp);
 
-            if (m_ulNotificationIntervalMs > 0)
+            if (m_ulNotificationIntervalMs > 0 && !m_bCapture)
             {
-                // Set timer for 1 ms. This will cause DPC to run every 1 ms but driver will send out 
+                // Set timer for 1 ms. This will cause DPC to run every 1 ms but driver will send out
                 // notification events only after notification interval. This timer is used by Sysvad to 
                 // emulate hardware and send out notification event. Real hardware should not use this
                 // timer to fire notification event as it will drain power if the timer is running at 1 msec.
@@ -1427,8 +1437,7 @@ VOID CMiniportWaveRTStream::UpdatePosition
 
     if (m_bCapture)
     {
-        // Write sine wave to buffer.
-        WriteBytes(ByteDisplacement);
+        // Capture uses render buffer; nothing to write.
     }
     else
     {
@@ -1490,6 +1499,11 @@ VOID CMiniportWaveRTStream::UpdatePosition
     // Update the DMA time stamp for the next call to GetPosition()
     //
     m_ullDmaTimeStamp = hnsCurrentTime;
+
+    if (!m_bCapture)
+    {
+        m_pMiniport->UpdateCaptureStreams(ilQPC);
+    }
 }
 
 //=============================================================================
