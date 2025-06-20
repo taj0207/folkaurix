@@ -19,6 +19,12 @@ Abstract:
 #include <sysvad.h>
 #include "basetopo.h"
 
+// Some builds of the SYSVAD sample may not define the WAVEIN_MUX node id.
+// Define a default value so the code compiles even when the symbol is missing.
+#ifndef WAVEIN_MUX
+#define WAVEIN_MUX 0
+#endif
+
 //=============================================================================
 #pragma code_seg("PAGE")
 CMiniportTopologySYSVAD::CMiniportTopologySYSVAD
