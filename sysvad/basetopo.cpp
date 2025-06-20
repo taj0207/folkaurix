@@ -348,7 +348,7 @@ Return Value:
     // Validate node
     // This property is only valid for WAVEIN_MUX node.
     //
-    // TODO if (WAVEIN_MUX == PropertyRequest->Node)
+    if (PropertyRequest->Node == WAVEIN_MUX)
     {
         if (PropertyRequest->ValueSize >= sizeof(ULONG))
         {
@@ -381,6 +381,10 @@ Return Value:
             DPF(D_TERSE, ("[PropertyHandlerMuxSource - Invalid parameter]"));
             ntStatus = STATUS_INVALID_PARAMETER;
         }
+    }
+    else
+    {
+        ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     }
 
     return ntStatus;
