@@ -237,6 +237,8 @@ public:
         _In_ PPCPROPERTY_REQUEST PropertyRequest
     );
 
+    VOID NotifyPacketAvailable();
+
 private:
 
     //
