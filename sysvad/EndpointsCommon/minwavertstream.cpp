@@ -1327,11 +1327,27 @@ VOID CMiniportWaveRTStream::UpdatePosition
     //
     m_ullPlayPosition = m_ullWritePosition =
         (m_ullWritePosition + ByteDisplacement) % m_ulDmaBufferSize;
-    
+
     // m_ullDmaTimeStamp is updated in both GetPostion and GetLinearPosition calls
-    // so m_ullLinearPosition needs to be updated accordingly here
+    // so m_ullLinearPosition needs to be updated accordingly here. When this
+    // stream represents a capture endpoint, also advance the packet counter so
+    // PortCls can detect newly available packets.
     //
-    m_ullLinearPosition += ByteDisplacement;
+    if (m_ulNotificationsPerBuffer > 0)
+    {
+        ULONG packetSize = m_ulDmaBufferSize / m_ulNotificationsPerBuffer;
+        LONGLONG oldPacket = m_ullLinearPosition / packetSize;
+        m_ullLinearPosition += ByteDisplacement;
+        LONGLONG newPacket = m_ullLinearPosition / packetSize;
+        if (m_bCapture)
+        {
+            m_llPacketCounter += newPacket - oldPacket;
+        }
+    }
+    else
+    {
+        m_ullLinearPosition += ByteDisplacement;
+    }
     
     // Update the DMA time stamp for the next call to GetPosition()
     //
