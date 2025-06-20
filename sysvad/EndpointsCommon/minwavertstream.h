@@ -27,7 +27,6 @@ typedef struct _NotificationListEntry
     PKEVENT     NotificationEvent;
 } NotificationListEntry;
 
-EXT_CALLBACK   TimerNotifyRT;
 
 //=============================================================================
 // Referenced Forward
@@ -55,7 +54,6 @@ class CMiniportWaveRTStream :
 protected:
     PPORTWAVERTSTREAM           m_pPortStream;
     LIST_ENTRY                  m_NotificationList;
-    PEX_TIMER                   m_pNotificationTimer;
     ULONG                       m_ulNotificationIntervalMs;
     ULONG                       m_ulCurrentWritePosition;
     LONG                        m_IsCurrentWritePositionUpdated;
@@ -86,7 +84,6 @@ public:
 
     // Friends
     friend class                CMiniportWaveRT;
-    friend EXT_CALLBACK         TimerNotifyRT;
 protected:
     CMiniportWaveRT*            m_pMiniport;
     ULONG                       m_ulPin;
