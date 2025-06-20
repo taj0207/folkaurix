@@ -178,6 +178,10 @@ private:
 
     AUDIOMODULE *                       m_pAudioModules;
 
+    BYTE*                               m_pRenderBuffer;
+    PMDL                                m_pRenderMdl;
+    ULONG                               m_ulRenderBufferSize;
+
 protected:
     PADAPTERCOMMON                      m_pAdapterCommon;
     ULONG                               m_DeviceFlags;
@@ -233,11 +237,18 @@ public:
     );
     
     NTSTATUS IsFormatSupported
-    ( 
-        _In_ ULONG          _ulPin, 
+    (
+        _In_ ULONG          _ulPin,
         _In_ BOOLEAN        _bCapture,
         _In_ PKSDATAFORMAT  _pDataFormat
     );
+
+    VOID SetRenderBuffer(_In_ BYTE* Buffer, _In_ PMDL Mdl, _In_ ULONG Size);
+    VOID ClearRenderBuffer();
+    BYTE* GetRenderBuffer();
+    PMDL GetRenderMdl();
+    ULONG GetRenderBufferSize();
+    VOID UpdateCaptureStreams(_In_ LARGE_INTEGER ilQPC);
 
     static NTSTATUS GetAttributesFromAttributeList
     (
@@ -300,7 +311,10 @@ public:
         m_DeviceFlags(MiniportPair->DeviceFlags),
         m_pMiniportPair(MiniportPair),
         m_pAudioModules(NULL),
-        m_pPortClsNotifications(NULL)
+        m_pPortClsNotifications(NULL),
+        m_pRenderBuffer(NULL),
+        m_pRenderMdl(NULL),
+        m_ulRenderBufferSize(0)
     {
         PAGED_CODE();
 

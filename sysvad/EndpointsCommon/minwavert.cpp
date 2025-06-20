@@ -193,6 +193,8 @@ Return Value:
         m_pAudioModules = NULL;
     }
 
+    ClearRenderBuffer();
+
 #if defined(SYSVAD_BTH_BYPASS) || defined(SYSVAD_USB_SIDEBAND)
     if (IsSidebandDevice())
     {
@@ -401,6 +403,9 @@ Return Value:
     m_plPeakMeter                       = NULL;
     m_pMixFormat                        = NULL;
     m_pDeviceFormat                     = NULL;
+    m_pRenderBuffer                     = NULL;
+    m_pRenderMdl                        = NULL;
+    m_ulRenderBufferSize                = 0;
     m_ulMixDrmContentId                 = 0;
     m_LoopbackProtection                = CONSTRICTOR_OPTION_DISABLE;
     RtlZeroMemory(&m_MixDrmRights, sizeof(m_MixDrmRights));
@@ -1309,6 +1314,10 @@ CMiniportWaveRT::StreamClosed
         streams = m_SystemStreams;
         count = m_ulMaxSystemStreams;
         updateDrmRights = true;
+        if (_Stream->m_pDmaBuffer == m_pRenderBuffer)
+        {
+            ClearRenderBuffer();
+        }
     }
     else if (IsOffloadPin(_Pin))
     {
@@ -3128,6 +3137,47 @@ NTSTATUS CMiniportWaveRT_EventHandler_SoundDetectorMatchDetected
 {
     CMiniportWaveRT* miniport = reinterpret_cast<CMiniportWaveRT*>(EventRequest->MajorTarget);
     return miniport->EventHandler_SoundDetectorMatchDetected(EventRequest);
+}
+
+void CMiniportWaveRT::SetRenderBuffer(_In_ BYTE* Buffer, _In_ PMDL Mdl, _In_ ULONG Size)
+{
+    m_pRenderBuffer = Buffer;
+    m_pRenderMdl = Mdl;
+    m_ulRenderBufferSize = Size;
+}
+
+void CMiniportWaveRT::ClearRenderBuffer()
+{
+    m_pRenderBuffer = NULL;
+    m_pRenderMdl = NULL;
+    m_ulRenderBufferSize = 0;
+}
+
+BYTE* CMiniportWaveRT::GetRenderBuffer()
+{
+    return m_pRenderBuffer;
+}
+
+PMDL CMiniportWaveRT::GetRenderMdl()
+{
+    return m_pRenderMdl;
+}
+
+ULONG CMiniportWaveRT::GetRenderBufferSize()
+{
+    return m_ulRenderBufferSize;
+}
+
+void CMiniportWaveRT::UpdateCaptureStreams(_In_ LARGE_INTEGER ilQPC)
+{
+    for (ULONG i = 0; i < m_ulMaxSystemStreams; ++i)
+    {
+        PCMiniportWaveRTStream stream = m_SystemStreams ? m_SystemStreams[i] : NULL;
+        if (stream && stream->m_bCapture)
+        {
+            stream->UpdatePosition(ilQPC);
+        }
+    }
 }
 
 #pragma code_seg()
