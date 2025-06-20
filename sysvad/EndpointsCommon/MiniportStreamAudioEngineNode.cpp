@@ -943,10 +943,12 @@ NTSTATUS CMiniportWaveRTStream::SetLoopbackProtection(_In_ CONSTRICTOR_OPTION pr
     PAGED_CODE ();
     DPF_ENTER(("[CMiniportWaveRTStream::SetLoopbackProtection]"));
 
+    UNREFERENCED_PARAMETER(protectionOption);
+
     //
     // Miniport driver mutes/unmutes the loopback here.
-    // 
-    
+    //
+
     return STATUS_SUCCESS;
 }
 
