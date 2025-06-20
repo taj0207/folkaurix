@@ -946,7 +946,6 @@ NTSTATUS CMiniportWaveRTStream::SetLoopbackProtection(_In_ CONSTRICTOR_OPTION pr
     //
     // Miniport driver mutes/unmutes the loopback here.
     // 
-    m_ToneGenerator.SetMute(protectionOption == CONSTRICTOR_OPTION_MUTE);
     
     return STATUS_SUCCESS;
 }
