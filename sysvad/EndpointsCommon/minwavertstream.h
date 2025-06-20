@@ -95,6 +95,7 @@ protected:
     ULONG                       m_ulDmaBufferSize;
     BYTE*                       m_pDmaBuffer;
     ULONG                       m_ulNotificationsPerBuffer;
+    BOOLEAN                     m_bDmaBufferAllocated;
     KSSTATE                     m_KsState;
     PKTIMER                     m_pTimer;
     PRKDPC                      m_pDpc;
