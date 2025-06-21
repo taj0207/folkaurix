@@ -1,6 +1,7 @@
 #include <sysvad.h>
 #include <limits.h>
 #include <ks.h>
+#include <ksmedia.h>
 #include "simple.h"
 #include "minwavert.h"
 #include "minwavertstream.h"
@@ -805,6 +806,15 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
     KIRQL oldIrql;
     KeAcquireSpinLock(&m_PositionSpinLock, &oldIrql);
 
+    if (m_KsState == KSSTATE_RUN)
+    {
+        // Update internal positions based on the current QPC so that the
+        // timestamp returned for this packet reflects the latest hardware
+        // progress.
+        LARGE_INTEGER ilQPC = KeQueryPerformanceCounter(NULL);
+        UpdatePosition(ilQPC);
+    }
+
     LONGLONG packetCounter = m_llPacketCounter;
     ULONGLONG ullLinearPosition = m_ullLinearPosition;
     ULONGLONG hnsElapsedTimeCarryForward = m_hnsElapsedTimeCarryForward;
@@ -1342,6 +1352,10 @@ VOID CMiniportWaveRTStream::UpdatePosition
         if (m_bCapture)
         {
             m_llPacketCounter += newPacket - oldPacket;
+            if (newPacket != oldPacket)
+            {
+                NotifyPacketAvailable();
+            }
         }
     }
     else
@@ -1391,6 +1405,33 @@ ByteDisplacement - # of bytes to process.
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
     }
+}
+
+VOID CMiniportWaveRTStream::NotifyPacketAvailable()
+{
+    if (!IsListEmpty(&m_NotificationList))
+    {
+        PLIST_ENTRY le = m_NotificationList.Flink;
+        while (le != &m_NotificationList)
+        {
+            NotificationListEntry* entry = CONTAINING_RECORD(le, NotificationListEntry, ListEntry);
+            KeSetEvent(entry->NotificationEvent, IO_NO_INCREMENT, FALSE);
+            le = le->Flink;
+        }
+    }
+
+    // Notify the OS that a new capture packet is ready.  Consumers
+    // register for KSEVENT_LOOPEDSTREAMING_POSITION by providing a
+    // LOOPEDSTREAMING_POSITION_EVENT_DATA structure.  PortCls fills in
+    // that structure with the current packet location and then calls
+    // GetReadPacket after this event is generated.
+    m_pMiniport->GenerateEventList(
+        const_cast<GUID*>(&KSEVENTSETID_LoopedStreaming),
+        KSEVENT_LOOPEDSTREAMING_POSITION,
+        TRUE,
+        m_ulPin,
+        FALSE,
+        ULONG(-1));
 }
 
 //=============================================================================

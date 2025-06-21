@@ -237,6 +237,11 @@ public:
         _In_ PPCPROPERTY_REQUEST PropertyRequest
     );
 
+    // Trigger registered notification events and generate a
+    // KSEVENT_LOOPEDSTREAMING_POSITION so that the OS calls
+    // GetReadPacket for the next available capture packet.
+    VOID NotifyPacketAvailable();
+
 private:
 
     //
