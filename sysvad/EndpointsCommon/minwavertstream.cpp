@@ -778,6 +778,8 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
     ULONG availablePacketNumber;
     ULONG droppedPackets;
 
+    DPF(D_VERBOSE, ("%!FUNC!: Enter"));
+
     // The call must be from event driven mode
     if(m_ulNotificationsPerBuffer == 0)
     {
@@ -868,6 +870,12 @@ NTSTATUS CMiniportWaveRTStream::GetReadPacket
     // Update the last packet read by the OS
     m_ulLastOsReadPacket = availablePacketNumber;
 
+    DPF(D_VERBOSE,
+        ("%!FUNC!: Packet=%lu Time=%llu Flags=0x%lx", 
+         availablePacketNumber,
+         (unsigned long long)*PerformanceCounterValue,
+         *Flags));
+
     return STATUS_SUCCESS;
 }
 
@@ -881,6 +889,9 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
 )
 {
     NTSTATUS ntStatus;
+
+    DPF(D_VERBOSE,
+        ("%!FUNC!: Packet=%lu Flags=0x%lx Eos=%lu", PacketNumber, Flags, EosPacketLength));
 
     // The call must be from event driven mode
     if (m_ulNotificationsPerBuffer == 0)
@@ -959,6 +970,12 @@ NTSTATUS CMiniportWaveRTStream::SetWritePacket
     {
         m_ulLastOsWritePacket = oldLastOsWritePacket;
     }
+
+    DPF(D_VERBOSE,
+        ("%!FUNC!: WritePos=%lu LastPacket=%lu Status=0x%x", 
+         m_ulCurrentWritePosition,
+         m_ulLastOsWritePacket,
+         ntStatus));
 
     return ntStatus;
 }
@@ -1256,6 +1273,7 @@ VOID CMiniportWaveRTStream::UpdatePosition
     _In_ LARGE_INTEGER ilQPC
 )
 {
+    DPF(D_VERBOSE, ("%!FUNC!: QPC=%llu", ilQPC.QuadPart));
     // Convert ticks to 100ns units.
     LONGLONG  hnsCurrentTime = KSCONVERT_PERFORMANCE_TIME(m_ullPerformanceCounterFrequency.QuadPart, ilQPC);
     
@@ -1385,6 +1403,13 @@ VOID CMiniportWaveRTStream::UpdatePosition
     {
         m_pMiniport->UpdateCaptureStreams(ilQPC);
     }
+
+    DPF(D_VERBOSE,
+        ("%!FUNC!: Linear=%llu Play=%llu Write=%lu Packet=%I64d", 
+         m_ullLinearPosition,
+         m_ullPlayPosition,
+         m_ulCurrentWritePosition,
+         m_llPacketCounter));
 }
 
 //=============================================================================
