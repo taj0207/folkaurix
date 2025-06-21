@@ -1420,9 +1420,11 @@ VOID CMiniportWaveRTStream::NotifyPacketAvailable()
         }
     }
 
-    // Notify the OS that a new capture packet is ready. LoopedStreaming
-    // POSITION events do not carry additional data; PortCls simply
-    // issues GetReadPacket when this event is signaled.
+    // Notify the OS that a new capture packet is ready.  Consumers
+    // register for KSEVENT_LOOPEDSTREAMING_POSITION by providing a
+    // LOOPEDSTREAMING_POSITION_EVENT_DATA structure.  PortCls fills in
+    // that structure with the current packet location and then calls
+    // GetReadPacket after this event is generated.
     m_pMiniport->GenerateEventList(
         const_cast<GUID*>(&KSEVENTSETID_LoopedStreaming),
         KSEVENT_LOOPEDSTREAMING_POSITION,
