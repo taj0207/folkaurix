@@ -1284,7 +1284,21 @@ VOID CMiniportWaveRTStream::UpdatePosition
 
     if (m_bCapture)
     {
-        // Capture uses render buffer; nothing to write.
+        // Only advance if new PCM data has been written by the render stream.
+        ULONG available;
+        if (m_ullWritePosition <= m_ulCurrentWritePosition)
+        {
+            available = m_ulCurrentWritePosition - (ULONG)m_ullWritePosition;
+        }
+        else
+        {
+            available = (m_ulDmaBufferSize - (ULONG)m_ullWritePosition) + m_ulCurrentWritePosition;
+        }
+
+        if (ByteDisplacement > available)
+        {
+            ByteDisplacement = available;
+        }
     }
     else
     {
